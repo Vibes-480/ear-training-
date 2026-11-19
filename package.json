@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "^2.119.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.6",
+    "react-router-dom": "^7.18.6",
     "smplr": "^1.2.0",
     "vexflow": "^4.2.5"
   },

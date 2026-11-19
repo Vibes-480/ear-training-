@@ -24,7 +24,28 @@ describe("spaced repetition", () => {
   });
 });
 
+function seeded(seed: number) {
+  let x = seed;
+  return () => {
+    x = (x * 1664525 + 1013904223) % 4294967296;
+    return x / 4294967296;
+  };
+}
+
 describe("daily plan", () => {
+  it("never repeats an item back to back, across many random orders", () => {
+    const now = 1_700_000_000_000;
+    for (let seed = 1; seed <= 500; seed++) {
+      const plan = buildDailyPlan(empty, DEFAULT_CONFIGS, ["intervals", "chords"], 30, now, seeded(seed));
+      expect(plan.queue).toHaveLength(30);
+      for (let i = 1; i < plan.queue.length; i++) {
+        const a = plan.queue[i - 1];
+        const b = plan.queue[i];
+        expect(a.drill === b.drill && a.item === b.item, `seed ${seed} at ${i}`).toBe(false);
+      }
+    }
+  });
+
   it("puts due items first, includes new ones and fills to length", () => {
     const now = 1_700_000_000_000;
     let p = empty;

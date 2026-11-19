@@ -29,16 +29,35 @@ function shuffle<T>(arr: T[], rng: Rng): T[] {
 
 const same = (a: DailyEntry, b: DailyEntry) => a.drill === b.drill && a.item === b.item;
 
-/** Reorder so the same item never appears twice in a row and drills alternate where possible. */
+/**
+ * Reorder so the same item never appears twice in a row and drills alternate
+ * where possible. Always placing the item with the most copies left (that
+ * isn't the one just placed) keeps repeats spread out, so we never get stuck
+ * with only duplicates at the end.
+ */
 export function interleave(entries: DailyEntry[], rng: Rng): DailyEntry[] {
   const pool = shuffle(entries, rng);
+  const key = (e: DailyEntry) => `${e.drill}:${e.item}`;
+  const left = new Map<string, number>();
+  pool.forEach((e) => left.set(key(e), (left.get(key(e)) ?? 0) + 1));
   const out: DailyEntry[] = [];
   while (pool.length) {
     const last = out[out.length - 1];
-    let idx = pool.findIndex((e) => !last || (e.drill !== last.drill && !same(e, last)));
-    if (idx < 0) idx = pool.findIndex((e) => !last || !same(e, last));
-    if (idx < 0) idx = 0;
-    out.push(pool.splice(idx, 1)[0]);
+    let best = -1;
+    let bestScore = -Infinity;
+    pool.forEach((e, i) => {
+      if (last && same(e, last)) return;
+      // More copies left matters most; a different drill is a bonus; earlier in the shuffle breaks ties.
+      const score = (left.get(key(e)) ?? 0) * 10 + (last && e.drill !== last.drill ? 1 : 0) - i * 1e-3;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    });
+    if (best < 0) best = 0; // only duplicates of the last item remain: unavoidable
+    const [e] = pool.splice(best, 1);
+    left.set(key(e), (left.get(key(e)) ?? 1) - 1);
+    out.push(e);
   }
   return out;
 }

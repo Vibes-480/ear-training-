@@ -280,7 +280,7 @@ kbd {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-top: 12px;
+  margin: 12px 0 16px;
 }
 .stat {
   background: var(--surface);

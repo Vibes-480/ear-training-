@@ -134,11 +134,13 @@ export interface HeatDay {
 }
 
 /** Practice calendar: weeks as columns, Monday at the top. Intensity = share of the daily goal. */
-export function CalendarHeatmap({ days, goal, weeks = 18 }: { days: Record<string, number>; goal: number; weeks?: number }) {
+export function CalendarHeatmap({ days, goal }: { days: Record<string, number>; goal: number }) {
   const [hover, setHover] = useState<{ x: number; y: number; date: string; count: number } | null>(null);
   const [ref, width] = useWidth<HTMLDivElement>();
   const cell = 13;
   const gap = 3;
+  // As many weeks as fit the card: about 4 months on a phone, up to a year on wide screens.
+  const weeks = width ? Math.max(12, Math.min(53, Math.floor((width - 28) / (cell + gap)))) : 18;
   const today = new Date();
   today.setHours(12, 0, 0, 0);
   const dow = (today.getDay() + 6) % 7; // Monday = 0
