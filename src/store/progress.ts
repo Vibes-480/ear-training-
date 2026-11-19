@@ -168,6 +168,11 @@ export function resetProgress(): void {
   commit(empty());
 }
 
+/** Replace all progress (cloud sync). */
+export function replaceProgress(p: Progress): void {
+  commit({ ...empty(), ...p, version: 1 });
+}
+
 export function exportProgress(): string {
   return JSON.stringify(current, null, 2);
 }
@@ -207,3 +212,5 @@ function subscribe(l: () => void) {
 export function useProgress(): Progress {
   return useSyncExternalStore(subscribe, getProgress, getProgress);
 }
+
+export { subscribe as onProgressChange };

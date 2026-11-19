@@ -1274,3 +1274,11 @@ table.stats .num {
   transform: scale(0.99);
   background: color-mix(in srgb, var(--accent) 30%, var(--surface));
 }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}

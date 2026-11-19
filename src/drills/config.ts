@@ -109,3 +109,5 @@ function subscribe(l: () => void) {
 export function useConfigs(): DrillConfigs {
   return useSyncExternalStore(subscribe, getConfigs, getConfigs);
 }
+
+export { subscribe as onConfigsChange };

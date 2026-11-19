@@ -3,6 +3,7 @@ import { audio } from "../audio/engine";
 import { Switch } from "../components/DrillOptions";
 import { COMMON_ROOTS, midiName, spelledName } from "../theory/notes";
 import { Link } from "react-router-dom";
+import { AccountCard } from "../components/AccountCard";
 import { INTERVALS } from "../theory/catalog";
 import { SONG_REFS } from "../theory/songs";
 import { useState } from "react";
@@ -39,6 +40,8 @@ export function SettingsPage() {
   return (
     <div className="page">
       <h1>Settings</h1>
+
+      <AccountCard />
 
       <section className="card">
         <h2 className="card-title">Sound</h2>

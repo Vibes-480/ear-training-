@@ -46,3 +46,5 @@ function subscribe(l: () => void) {
 export function usePresets(): Preset[] {
   return useSyncExternalStore(subscribe, getPresets, getPresets);
 }
+
+export { subscribe as onPresetsChange };

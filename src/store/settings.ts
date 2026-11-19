@@ -160,3 +160,5 @@ function subscribe(l: () => void) {
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, getSettings, getSettings);
 }
+
+export { subscribe as onSettingsChange };
