@@ -1,0 +1,166 @@
+import { useSyncExternalStore } from "react";
+import { loadJSON, saveJSON } from "./storage";
+
+// Progress is kept as compact aggregates rather than a raw attempt log, so it
+// stays small in localStorage and is easy to sync to the cloud later.
+
+export interface ItemStat {
+  attempts: number;
+  correct: number;
+  /** Sum of answer times for correct answers, in ms. */
+  totalMs: number;
+  /** Last results, newest last (1 = correct). Max RECENT_MAX entries. */
+  recent: number[];
+  lastSeen: number;
+}
+
+export interface DayStat {
+  questions: number;
+  correct: number;
+  ms: number;
+}
+
+export interface SessionRecord {
+  at: number;
+  drill: string;
+  total: number;
+  correct: number;
+}
+
+export interface Progress {
+  version: 1;
+  /** Keyed by `${drill}:${part}:${itemId}`. */
+  items: Record<string, ItemStat>;
+  /** confusions[`${drill}:${part}`][correctId][answeredId] = count */
+  confusions: Record<string, Record<string, Record<string, number>>>;
+  /** Keyed by local date YYYY-MM-DD. */
+  days: Record<string, DayStat>;
+  sessions: SessionRecord[];
+}
+
+const KEY = "et.progress.v1";
+const RECENT_MAX = 12;
+const SESSIONS_MAX = 500;
+
+function empty(): Progress {
+  return { version: 1, items: {}, confusions: {}, days: {}, sessions: [] };
+}
+
+let current: Progress = { ...empty(), ...loadJSON<Partial<Progress>>(KEY, {}) };
+const listeners = new Set<() => void>();
+
+function commit(next: Progress) {
+  current = next;
+  saveJSON(KEY, current);
+  listeners.forEach((l) => l());
+}
+
+export function getProgress(): Progress {
+  return current;
+}
+
+export function itemKey(drill: string, part: string, itemId: string): string {
+  return `${drill}:${part}:${itemId}`;
+}
+
+export function localDay(ts = Date.now()): string {
+  const d = new Date(ts);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+export interface AttemptInput {
+  drill: string;
+  part: string;
+  correctId: string;
+  answeredId: string;
+  ms: number;
+  at?: number;
+}
+
+/** Pure reducer: returns a new Progress with one answer recorded. */
+export function applyAttempt(p: Progress, a: AttemptInput): Progress {
+  const at = a.at ?? Date.now();
+  const ok = a.correctId === a.answeredId;
+  const key = itemKey(a.drill, a.part, a.correctId);
+  const prev = p.items[key] ?? { attempts: 0, correct: 0, totalMs: 0, recent: [], lastSeen: 0 };
+  const item: ItemStat = {
+    attempts: prev.attempts + 1,
+    correct: prev.correct + (ok ? 1 : 0),
+    totalMs: prev.totalMs + (ok ? a.ms : 0),
+    recent: [...prev.recent, ok ? 1 : 0].slice(-RECENT_MAX),
+    lastSeen: at,
+  };
+
+  const confusions = { ...p.confusions };
+  if (!ok) {
+    const ck = `${a.drill}:${a.part}`;
+    const table = { ...(confusions[ck] ?? {}) };
+    const row = { ...(table[a.correctId] ?? {}) };
+    row[a.answeredId] = (row[a.answeredId] ?? 0) + 1;
+    table[a.correctId] = row;
+    confusions[ck] = table;
+  }
+
+  const dk = localDay(at);
+  const day = p.days[dk] ?? { questions: 0, correct: 0, ms: 0 };
+  const days = {
+    ...p.days,
+    [dk]: { questions: day.questions + 1, correct: day.correct + (ok ? 1 : 0), ms: day.ms + Math.min(a.ms, 60_000) },
+  };
+
+  return { ...p, items: { ...p.items, [key]: item }, confusions, days };
+}
+
+export function recordAttempt(a: AttemptInput): void {
+  commit(applyAttempt(current, a));
+}
+
+export function recordSession(s: SessionRecord): void {
+  commit({ ...current, sessions: [...current.sessions, s].slice(-SESSIONS_MAX) });
+}
+
+export function resetProgress(): void {
+  commit(empty());
+}
+
+export function exportProgress(): string {
+  return JSON.stringify(current, null, 2);
+}
+
+export function importProgress(json: string): void {
+  const parsed = JSON.parse(json) as Partial<Progress>;
+  if (!parsed || typeof parsed !== "object" || !parsed.items) throw new Error("This file doesn't look like an ear trainer backup.");
+  commit({ ...empty(), ...parsed, version: 1 });
+}
+
+/** Recent accuracy for an item, smoothed so unseen items count as weak. */
+export function recentAccuracy(stat: ItemStat | undefined): number {
+  if (!stat || stat.recent.length === 0) return 0.5;
+  const sum = stat.recent.reduce((a, b) => a + b, 0);
+  // Laplace smoothing toward 0.5.
+  return (sum + 1) / (stat.recent.length + 2);
+}
+
+/** Consecutive days with practice, ending today (or yesterday if not practised yet today). */
+export function currentStreak(p: Progress, now = Date.now()): number {
+  let streak = 0;
+  const dayMs = 86_400_000;
+  let t = now;
+  if (!p.days[localDay(t)]) t -= dayMs;
+  while (p.days[localDay(t)]) {
+    streak++;
+    t -= dayMs;
+  }
+  return streak;
+}
+
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+export function useProgress(): Progress {
+  return useSyncExternalStore(subscribe, getProgress, getProgress);
+}
