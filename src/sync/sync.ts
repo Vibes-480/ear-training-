@@ -162,6 +162,8 @@ function emptyToUndef<T>(v: T): T | undefined {
 
 function friendly(msg: string): string {
   if (/relation .*user_data.* does not exist|Could not find the table/i.test(msg)) return "The user_data table is missing. Run supabase/schema.sql in the Supabase SQL Editor.";
+  if (/permission denied for table/i.test(msg))
+    return "The database hasn't given signed-in users access yet. In Supabase's SQL Editor, run: grant select, insert, update on table public.user_data to authenticated;";
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return "Can't reach the server. You're probably offline; changes will sync later.";
   return msg;
 }

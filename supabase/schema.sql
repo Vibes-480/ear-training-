@@ -12,3 +12,7 @@ alter table public.user_data enable row level security;
 create policy "read own"   on public.user_data for select using (auth.uid() = user_id);
 create policy "insert own" on public.user_data for insert with check (auth.uid() = user_id);
 create policy "update own" on public.user_data for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Newer Supabase projects don't grant table access to signed-in users automatically.
+-- Row-level security above still limits each user to their own row.
+grant select, insert, update on table public.user_data to authenticated;
