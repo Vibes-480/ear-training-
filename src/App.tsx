@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { DailyPage } from "./pages/DailyPage";
+import { DictationPage } from "./pages/DictationPage";
 import { DrillPage } from "./pages/DrillPage";
 import { HomePage } from "./pages/HomePage";
 import { ProgressPage } from "./pages/ProgressPage";
@@ -37,6 +38,7 @@ export function App() {
           <Route path="/daily" element={<DailyPage />} />
           <Route path="/drill/:id" element={<DrillPage key={location.pathname} />} />
           <Route path="/sing" element={<SingPage />} />
+          <Route path="/dictation" element={<DictationPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<HomePage />} />

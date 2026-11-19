@@ -55,6 +55,6 @@ A personal ear trainer covering everything needed to develop strong relative pit
 2. **Daily session and stats** ✅: spaced-repetition daily session, confusion grid, charts, presets, streak goals and calendar.
 3. **Harmony** ✅: progressions, functional training, chord tones over a backing track, drone and cadence context, song references.
 4. **Voice** ✅: mic pitch detection, voice-range detection, sight-singing, tuning drills.
-5. **Dictation:** melody and rhythm on a staff.
+5. **Dictation** ✅: melody and rhythm on a staff.
 6. **Accounts:** Supabase login and cloud sync.
 7. **Extras:** curriculum, genre packs, transcription tool.

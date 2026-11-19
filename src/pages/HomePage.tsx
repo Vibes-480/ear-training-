@@ -128,6 +128,11 @@ export function HomePage() {
       <div style={{ marginTop: 12 }}>
         <DrillGrid drills={PITCH_DRILLS} p={p} />
       </div>
+
+      <h2 className="section-title">Dictation</h2>
+      <div className="drill-grid">
+        <ToolCard to="/dictation" title="Melody & rhythm" blurb="Hear a melody or rhythm, then write it on the staff or tap it back" p={p} statKey="melody" />
+      </div>
     </div>
   );
 }

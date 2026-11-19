@@ -29,6 +29,8 @@ export interface StaffProps {
   /** Width of the drawing; defaults to the container width. */
   height?: number;
   ariaLabel?: string;
+  /** Small inline notation: no clef, compact. */
+  bare?: boolean;
 }
 
 const BEATS: Record<string, number> = { w: 4, h: 2, q: 1, "8": 0.5, "16": 0.25 };
@@ -43,7 +45,7 @@ export function noteBeats(n: StaffNote): number {
   return b;
 }
 
-export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, beatsPerBar, height = 130, ariaLabel = "Music staff" }: StaffProps) {
+export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, beatsPerBar, height = 130, ariaLabel = "Music staff", bare }: StaffProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, b
     if (!el) return;
     const draw = () => {
       el.innerHTML = "";
-      const width = Math.max(260, el.clientWidth);
+      const width = Math.max(bare ? 60 : 260, el.clientWidth);
       const renderer = new Renderer(el, Renderer.Backends.SVG);
       renderer.resize(width, height);
       const ctx = renderer.getContext();
@@ -80,19 +82,23 @@ export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, b
       } else bars.push(notes);
       if (!bars.length) bars.push([]);
 
-      const firstExtra = 70 + (keySig !== "C" ? 40 : 0) + (timeSig ? 30 : 0);
+      const firstExtra = bare ? 0 : 70 + (keySig !== "C" ? 40 : 0) + (timeSig ? 30 : 0);
       const usable = width - 20 - firstExtra;
       const barW = usable / bars.length;
       let x = 10;
       bars.forEach((bar, bi) => {
         const w = bi === 0 ? barW + firstExtra : barW;
-        const stave = new Stave(x, 10, w);
-        if (bi === 0) {
+        const stave = new Stave(x, bare ? -10 : 10, w);
+        if (bare) {
+          stave.setBegBarType(7); // none
+          stave.setEndBarType(7);
+        }
+        if (bi === 0 && !bare) {
           stave.addClef(clef);
           if (keySig !== "C") stave.addKeySignature(keySig);
           if (timeSig) stave.addTimeSignature(timeSig);
         }
-        if (bi === bars.length - 1 && beatsPerBar) stave.setEndBarType(3); // final barline
+        if (bi === bars.length - 1 && beatsPerBar && !bare) stave.setEndBarType(3); // final barline
         stave.setContext(ctx).draw();
         x += w;
         if (!bar.length) return;
@@ -121,7 +127,7 @@ export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, b
         const voice = new Voice({ num_beats: 4, beat_value: 4 }).setMode(Voice.Mode.SOFT);
         voice.addTickables(staveNotes);
         Accidental.applyAccidentals([voice], keySig);
-        const beams = timeSig ? Beam.generateBeams(staveNotes.filter((n) => !n.isRest())) : [];
+        const beams = timeSig || bare ? Beam.generateBeams(staveNotes.filter((n) => !n.isRest())) : [];
         new Formatter().joinVoices([voice]).format([voice], w - (bi === 0 ? firstExtra : 0) - 20);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
@@ -149,7 +155,7 @@ export default function Staff({ notes, clef = "treble", keySig = "C", timeSig, b
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [notes, clef, keySig, timeSig, beatsPerBar, height, ariaLabel]);
+  }, [notes, clef, keySig, timeSig, beatsPerBar, height, ariaLabel, bare]);
 
   return <div className="staff" ref={ref} style={{ minHeight: height }} />;
 }

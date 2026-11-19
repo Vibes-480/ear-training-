@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { loadJSON, saveJSON } from "./storage";
+import type { MelodySettings, RhythmSettings } from "../drills/dictation";
 
 export type InstrumentId = "piano" | "epiano" | "guitar" | "strings" | "vibes" | "synth";
 
@@ -53,6 +54,8 @@ export interface Settings {
   /** Comfortable singing range (MIDI), measured by the range check. */
   voiceRange: { lo: number; hi: number } | null;
   sing: SingSettings;
+  melody: MelodySettings;
+  rhythm: RhythmSettings;
 }
 
 export interface SingSettings {
@@ -103,10 +106,30 @@ export const DEFAULT_SETTINGS: Settings = {
     anyOctave: true,
     timeLimit: 10,
   },
+  melody: {
+    tonalities: ["major"],
+    degreesMajor: ["1", "2", "3", "4", "5", "6", "7"],
+    degreesMinor: ["1", "2", "b3", "4", "5", "b6", "b7", "7"],
+    length: 4,
+    maxLeap: 7,
+    giveFirst: true,
+  },
+  rhythm: {
+    cells: ["q", "qr", "88", "h"],
+    bars: 1,
+    beatsPerBar: 4,
+    metronome: true,
+  },
 };
 
 function withDefaults(saved: Partial<Settings>): Settings {
-  return { ...DEFAULT_SETTINGS, ...saved, sing: { ...DEFAULT_SETTINGS.sing, ...saved.sing } };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    sing: { ...DEFAULT_SETTINGS.sing, ...saved.sing },
+    melody: { ...DEFAULT_SETTINGS.melody, ...saved.melody },
+    rhythm: { ...DEFAULT_SETTINGS.rhythm, ...saved.rhythm },
+  };
 }
 
 let current: Settings = withDefaults(loadJSON<Partial<Settings>>(KEY, {}));
