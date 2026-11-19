@@ -5,6 +5,7 @@ import { DrillPage } from "./pages/DrillPage";
 import { HomePage } from "./pages/HomePage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SingPage } from "./pages/SingPage";
 import { useSettings } from "./store/settings";
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/daily" element={<DailyPage />} />
           <Route path="/drill/:id" element={<DrillPage key={location.pathname} />} />
+          <Route path="/sing" element={<SingPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<HomePage />} />

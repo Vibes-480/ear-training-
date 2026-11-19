@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { getTuningState, setTuningCents } from "../drills/tuning";
 import { CHORDS, INTERVALS, INVERSION_NAMES, SCALES, type ChordGroup, type ScaleGroup } from "../theory/catalog";
 import { COMMON_ROOTS, degreeLabel, spelledName } from "../theory/notes";
 import { BACKING_SETS, CADENCES, CHORD_TONES, FUNCTIONAL_DEGREES, NUMERALS, TONIC } from "../theory/harmony";
@@ -395,6 +396,42 @@ function ChordToneOptions() {
   );
 }
 
+function TuningOptions() {
+  const { tuning: c } = useConfigs();
+  const [level, setLevel] = useState(getTuningState().cents);
+  return (
+    <>
+      <Group title="How the notes play">
+        <Chip on={c.modes.includes("sequence")} onClick={() => updateConfig("tuning", { modes: toggle(c.modes, "sequence") })}>
+          One after the other
+        </Chip>
+        <Chip on={c.modes.includes("together")} onClick={() => updateConfig("tuning", { modes: toggle(c.modes, "together") })}>
+          Together (listen for beating)
+        </Chip>
+      </Group>
+      <div className="opt-group">
+        <Switch checked={c.inTune} onChange={(v) => updateConfig("tuning", { inTune: v })} label="Include in-tune pairs" />
+        <div className="field-inline">
+          <span>
+            Current difference: <strong>{level}¢</strong>
+          </span>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              setTuningCents(30);
+              setLevel(30);
+            }}
+          >
+            Reset to 30¢
+          </button>
+        </div>
+        <p className="hint">Two right answers in a row shrink the difference; a miss widens it. Under 10¢ is very good, under 5¢ is excellent.</p>
+      </div>
+    </>
+  );
+}
+
 export function DrillOptions({ drill }: { drill: DrillId }) {
   return (
     <div className="drill-options">
@@ -405,7 +442,8 @@ export function DrillOptions({ drill }: { drill: DrillId }) {
       {drill === "progressions" && <ProgressionOptions />}
       {drill === "functional" && <FunctionalOptions />}
       {drill === "chordtones" && <ChordToneOptions />}
-      <KeyOptions register={["intervals", "chords", "scales", "pitch"].includes(drill)} />
+      {drill === "tuning" && <TuningOptions />}
+      {drill !== "tuning" && <KeyOptions register={["intervals", "chords", "scales", "pitch"].includes(drill)} />}
       <button type="button" className="link" onClick={() => resetConfig(drill)}>
         Reset this drill to defaults
       </button>
@@ -448,6 +486,8 @@ export function configProblem(drill: DrillId, cfgs: ReturnType<typeof useConfigs
       if (!c.registers.length) return "Pick at least one register.";
       return null;
     }
+    case "tuning":
+      return cfgs.tuning.modes.length ? null : "Pick at least one way to play the notes.";
     case "chordtones":
       if (!cfgs.chordtones.sets.length) return "Pick at least one backing track.";
       if (cfgs.chordtones.tones.length < 2) return "Pick at least two chord tones.";

@@ -9,10 +9,12 @@ import {
   spellDegreeBelow,
   spelledName,
   defaultSpelling,
+  bestRootSpelling,
   type SpelledNote,
 } from "../theory/notes";
 import type { Settings } from "../store/settings";
 import { chooseRoot, pick, type Rng } from "./register";
+import { generateTuning } from "./tuning";
 import { generateChordTones, generateFunctional, generateProgression, harmonyPreview } from "./harmony";
 import type {
   ChordConfig,
@@ -160,7 +162,8 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
   const allowedInv = (cfg.inversions.length ? cfg.inversions : [0]).filter((i) => i <= maxInversion(def.degrees));
   const inv = allowedInv.length ? pick(allowedInv, ctx.rng) : 0;
   const offsets = chordVoicing(def.degrees, inv);
-  const r = chooseRoot(offsets, s, ctx.rng);
+  const r0 = chooseRoot(offsets, s, ctx.rng);
+  const r = { ...r0, spelled: bestRootSpelling(r0.spelled, def.degrees) };
   const b = beat(s.tempo);
 
   const notes: QuestionNote[] = def.degrees
@@ -221,7 +224,8 @@ export function generateScale(cfg: ScaleConfig, s: RootOpts, ctx: GenContext): Q
   const dir = pick(cfg.directions.length ? cfg.directions : (["asc"] as const), ctx.rng);
   const degs = [...def.degrees, "8"];
   const offsets = degs.map(degreeSemitones);
-  const r = chooseRoot(offsets, s, ctx.rng);
+  const r0 = chooseRoot(offsets, s, ctx.rng);
+  const r = { ...r0, spelled: bestRootSpelling(r0.spelled, def.degrees) };
   const step = beat(s.tempo) / 2;
 
   const up: QuestionNote[] = degs.map((d) => ({ midi: r.midi + degreeSemitones(d), spelled: spellDegree(r.spelled, d), degree: d }));
@@ -351,6 +355,8 @@ export function generate(drill: DrillId, cfgs: DrillConfigs, s: RootOpts, ctx: G
       return generateFunctional(cfgs.functional, s, ctx);
     case "chordtones":
       return generateChordTones(cfgs.chordtones, s, ctx);
+    case "tuning":
+      return generateTuning(cfgs.tuning, ctx);
     case "pitch":
       return generatePitch(cfgs.pitch, s, ctx);
   }

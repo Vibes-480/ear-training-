@@ -1049,3 +1049,151 @@ table.stats .num {
   color: var(--muted);
   font-size: 0.82em;
 }
+
+/* ---------- Stage 4: voice ---------- */
+
+.pitch-meter {
+  margin: 16px 0 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.pitch-meter.on-target {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.pm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pm-note {
+  font-size: 1.6rem;
+  font-weight: 800;
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
+}
+.pm-needle {
+  position: relative;
+  flex: 1;
+  height: 24px;
+}
+.pm-scale {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 11px;
+  height: 2px;
+  background: var(--border);
+}
+.pm-center {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 2px;
+  height: 20px;
+  background: var(--muted);
+}
+.pm-dot {
+  position: absolute;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: left 0.08s linear;
+}
+.on-target .pm-dot {
+  background: var(--ok);
+}
+.pm-cents {
+  min-width: 72px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.pm-trace {
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin-top: 8px;
+}
+.range-result {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.sing-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.sing-target {
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: center;
+  font-weight: 700;
+}
+.sing-target.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.sing-target.hit {
+  background: var(--ok-soft);
+  border-color: var(--ok);
+}
+.sing-target.miss {
+  background: var(--bad-soft);
+  border-color: var(--bad);
+}
+.sing-message {
+  min-height: 1.5em;
+  font-weight: 600;
+  margin: 4px 0 12px;
+}
+.mode-list {
+  display: grid;
+  gap: 8px;
+}
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+.mode-card.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode-name {
+  font-weight: 650;
+}
+.staff {
+  color: var(--text);
+  margin-top: 12px;
+  overflow: hidden;
+}
+.staff svg {
+  display: block;
+  max-width: 100%;
+}
+.feedback .staff {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 0 4px;
+}

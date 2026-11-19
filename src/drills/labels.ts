@@ -2,6 +2,7 @@ import { CHORDS, INTERVALS, INVERSION_NAMES, SCALES } from "../theory/catalog";
 import { PITCH_LABELS } from "./generate";
 import { CADENCES, CHORD_TONES } from "../theory/harmony";
 import { degreeLabel } from "../theory/notes";
+import { singItemLabel } from "./sing";
 
 const SCALE_SHORT: Record<string, string> = {
   ionian: "Ion", dorian: "Dor", phrygian: "Phr", lydian: "Lyd", mixolydian: "Mix", aeolian: "Aeo", locrian: "Loc",
@@ -21,6 +22,8 @@ export function itemLabel(drill: string, part: string, id: string): string {
   if (drill === "progressions") return id;
   if (drill === "functional") return `Degree ${degreeLabel(id)}`;
   if (drill === "chordtones") return CHORD_TONES.find((t) => t.id === id)?.name ?? id;
+  if (drill === "tuning") return id === "in" ? "In tune" : id === "flat" ? "Flat" : "Sharp";
+  if (drill === "sing") return singItemLabel(part, id);
   return id;
 }
 
@@ -35,6 +38,8 @@ export function shortLabel(drill: string, part: string, id: string): string {
   if (drill === "progressions" && part === "cadence") return (CADENCES.find((c) => c.id === id)?.name ?? id).slice(0, 4);
   if (drill === "functional") return degreeLabel(id);
   if (drill === "chordtones") return id === "1" ? "R" : id;
+  if (drill === "tuning") return id === "in" ? "In" : id === "flat" ? "♭" : "♯";
+  if (drill === "sing") return part === "intervals" ? INTERVALS.find((i) => i.id === id)?.short ?? id : part === "match" ? (PITCH_LABELS[Number(id)] ?? id).split("/")[0] : degreeLabel(id);
   return id;
 }
 

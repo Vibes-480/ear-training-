@@ -14,7 +14,7 @@ import {
   type NumeralDef,
   type Tonality,
 } from "../theory/harmony";
-import { COMMON_ROOTS, degreeLabel, degreeSemitones, parseDegree, pitchClass, spellDegree, spelledName, type SpelledNote } from "../theory/notes";
+import { bestRootSpelling, COMMON_ROOTS, degreeLabel, degreeSemitones, parseDegree, pitchClass, spellDegree, spelledName, type SpelledNote } from "../theory/notes";
 import { beat, cadenceEvents, octavesFrom, weightedPick, type GenContext } from "./generate";
 import { pick } from "./register";
 import type { ChordToneConfig, Choice, FunctionalConfig, PlayEvent, ProgressionConfig, Question, QuestionNote, QuestionPart } from "./types";
@@ -109,6 +109,11 @@ function chordSymbol(key: SpelledNote, rootDegree: string, chordId: string): str
   return spelledName(spellDegree(key, rootDegree)) + def.symbol;
 }
 
+/** Keys are spelled the way they're usually written (F♯ minor, not G♭ minor). */
+function keyFor(key: SpelledNote, tonality: Tonality): SpelledNote {
+  return bestRootSpelling(key, tonality === "minor" ? ["2", "b3", "4", "5", "b6", "b7"] : ["2", "3", "4", "5", "6", "7"]);
+}
+
 function keyName(key: SpelledNote, tonality: Tonality) {
   return `${spelledName(key)} ${tonality}`;
 }
@@ -128,7 +133,7 @@ export function progressionTonality(cfg: ProgressionConfig, rng: () => number): 
 export function generateProgression(cfg: ProgressionConfig, s: KeyOpts, ctx: GenContext): Question {
   if (cfg.mode === "cadences") return generateCadence(cfg, s, ctx);
   const tonality = progressionTonality(cfg, ctx.rng);
-  const key = chooseKey(s, ctx.rng);
+  const key = keyFor(chooseKey(s, ctx.rng), tonality);
   const choices = numeralChoices(tonality, tonality === "major" ? cfg.major : cfg.minor);
   const allowed = new Set(choices.map((c) => c.id));
   const tonic = TONIC[tonality];
@@ -178,7 +183,7 @@ export function generateProgression(cfg: ProgressionConfig, s: KeyOpts, ctx: Gen
 
 function generateCadence(cfg: ProgressionConfig, s: KeyOpts, ctx: GenContext): Question {
   const tonality = progressionTonality(cfg, ctx.rng);
-  const key = chooseKey(s, ctx.rng);
+  const key = keyFor(chooseKey(s, ctx.rng), tonality);
   const enabled = CADENCES.filter((c) => cfg.cadences.includes(c.id));
   const list = enabled.length ? enabled : CADENCES;
   const id = weightedPick(
@@ -216,7 +221,7 @@ const REGISTER_TONIC: Record<"bass" | "mid" | "high", number> = { bass: 36, mid:
 
 export function generateFunctional(cfg: FunctionalConfig, s: KeyOpts, ctx: GenContext): Question {
   const tonality: Tonality = pick(cfg.tonalities.length ? cfg.tonalities : (["major"] as Tonality[]), ctx.rng);
-  const key = chooseKey(s, ctx.rng);
+  const key = keyFor(chooseKey(s, ctx.rng), tonality);
   const enabled = (tonality === "major" ? cfg.major : cfg.minor).filter((d) => FUNCTIONAL_DEGREES.some((f) => f.id === d));
   const ids = enabled.length >= 2 ? enabled : ["1", "3", "5"];
   const n = Math.max(1, Math.min(4, cfg.notes));
@@ -292,7 +297,7 @@ export function toneDegree(chordId: string, tone: string): string | null {
 export function generateChordTones(cfg: ChordToneConfig, s: KeyOpts, ctx: GenContext): Question {
   const sets = BACKING_SETS.filter((b) => cfg.sets.includes(b.id));
   const set = pick(sets.length ? sets : BACKING_SETS.slice(0, 1), ctx.rng);
-  const key = chooseKey(s, ctx.rng);
+  const key = keyFor(chooseKey(s, ctx.rng), set.tonality);
   const tones = CHORD_TONES.filter((t) => cfg.tones.includes(t.id)).map((t) => t.id);
   const toneIds = tones.length >= 2 ? tones : ["1", "3", "5", "7"];
   const b = beat(s.tempo);

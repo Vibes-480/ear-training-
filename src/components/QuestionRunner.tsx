@@ -4,7 +4,11 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { audio, SAMPLED_INSTRUMENTS } from "../audio/engine";
-import { evaluatePiano, OTHER } from "../drills/evaluate";
+import { canSing, evaluatePiano, evaluateSung, OTHER } from "../drills/evaluate";
+import { useMic } from "../audio/mic";
+import { NoteStabilizer } from "../audio/pitch";
+import { PitchMeter } from "./PitchMeter";
+import { QuestionStaff, vexKeySig } from "./StaffLazy";
 import { answerPreview } from "../drills/generate";
 import { pick } from "../drills/register";
 import type { PlayEvent, Question } from "../drills/types";
@@ -120,6 +124,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
 
   const finishQuestion = (question: Question, allPicks: string[]) => {
     const allCorrect = question.parts.every((p, i) => allPicks[i] === p.answer);
+    question.onResult?.(allCorrect);
     previous.current = question.parts[0].answer;
     setResult((r) => {
       const missed = { ...r.missed };
@@ -175,6 +180,19 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
     if (q) void playQuestion(q);
   };
 
+  // Singing: listen while a sung answer is possible, answer on the first steady note.
+  const singing = inputMode === "sing" && phase === "asking" && partIdx === 0 && !!q && canSing(q);
+  const stab = useRef(new NoteStabilizer(350));
+  useEffect(() => stab.current.reset(), [q, singing]);
+  const { state: micState, reading } = useMic(inputMode === "sing" && !!q && canSing(q), (r, t) => {
+    if (!singing || !q) return;
+    const n = stab.current.push(r, t);
+    if (!n) return;
+    stab.current.reset();
+    setSelected([n.midi]);
+    answer(evaluateSung(q, n.midi));
+  });
+
   // Keyboard shortcuts: Space = replay, Enter = check / next, 1–9 = answer.
   const handlers = useRef({ replay, next, checkPiano, answer, phase, partIdx, q, inputMode });
   handlers.current = { replay, next, checkPiano, answer, phase, partIdx, q, inputMode };
@@ -205,6 +223,13 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
   const part = q.parts[partIdx];
   const allCorrect = phase === "feedback" && q.parts.every((p, i) => picks[i] === p.answer);
   const usingPiano = inputMode === "piano" && partIdx === 0 && phase === "asking" && !!q.piano;
+  const usingSing = inputMode === "sing" && partIdx === 0 && phase === "asking" && canSing(q);
+  const singPrompt =
+    q.piano?.mode === "interval"
+      ? `Sing the second note (any octave)`
+      : q.piano?.mode === "degree"
+        ? "Sing the note you heard (any octave)"
+        : "Sing the note you heard (any octave)";
   const shownCount = Math.min(result.n + (phase === "asking" ? 1 : 0), total);
 
   const marks: Record<number, KeyMark> = {};
@@ -212,9 +237,9 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
     if (inputMode === "piano") q.piano?.given.forEach((m) => (marks[m] = "given"));
     selected.forEach((m) => (marks[m] = "selected"));
   } else {
-    if (inputMode === "piano") selected.forEach((m) => (marks[m] = "wrong"));
+    if (inputMode !== "buttons") selected.forEach((m) => (marks[m] = "wrong"));
     q.notes.forEach((n) => (marks[n.midi] = "answer"));
-    if (inputMode === "piano") {
+    if (inputMode !== "buttons") {
       const correctPcs = new Set(q.notes.map((n) => ((n.midi % 12) + 12) % 12));
       selected.forEach((m) => {
         const pcOk = correctPcs.has(((m % 12) + 12) % 12);
@@ -256,9 +281,9 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
         </button>
         {q.piano && partIdx === 0 && phase === "asking" && (
           <div className="segmented" role="tablist" aria-label="Answer with">
-            {(["buttons", "piano"] as const).map((m) => (
+            {(canSing(q) ? (["buttons", "piano", "sing"] as const) : (["buttons", "piano"] as const)).map((m) => (
               <button key={m} type="button" role="tab" aria-selected={inputMode === m} className={inputMode === m ? "on" : ""} onMouseDown={noFocus} onClick={() => setInputMode(m)}>
-                {m === "buttons" ? "Buttons" : "Piano"}
+                {m === "buttons" ? "Buttons" : m === "piano" ? "Piano" : "Sing"}
               </button>
             ))}
           </div>
@@ -267,7 +292,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
 
       {phase === "asking" && (
         <>
-          <p className="prompt">{usingPiano ? q.piano!.instruction : part.prompt}</p>
+          <p className="prompt">{usingSing ? singPrompt : usingPiano ? q.piano!.instruction : part.prompt}</p>
           {partIdx > 0 && (
             <div className="part-results">
               {q.parts.slice(0, partIdx).map((p, i) => (
@@ -290,7 +315,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
                 <span>
                   {i === 0 && picks[i] === OTHER && selected.length ? (
                     <>
-                      You played <strong>{[...selected].sort((a, z) => a - z).map((m) => midiName(m)).join(" ")}</strong>
+                      You {inputMode === "sing" ? "sang" : "played"} <strong>{[...selected].sort((a, z) => a - z).map((m) => midiName(m)).join(" ")}</strong>
                     </>
                   ) : (
                     <>
@@ -320,11 +345,18 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
               ))}
             </div>
           )}
+          {settings.showStaff && q.notes.length > 0 && (
+            <QuestionStaff
+              notes={q.notes}
+              harmonic={q.events.length === 1 && q.events[0].midi.length > 1}
+              keySig={q.drill === "functional" ? vexKeySig(q.root.spelled, q.meta?.tonality === "minor") : "C"}
+            />
+          )}
           {renderExtra?.(q, allCorrect)}
         </div>
       )}
 
-      {(usingPiano || (phase === "feedback" && inputMode === "piano" && q.piano)) && q.piano && (
+      {(usingPiano || (phase === "feedback" && inputMode !== "buttons" && q.piano)) && q.piano && (
         <div className="piano-wrap">
           <Piano lo={q.piano.range[0]} hi={q.piano.range[1]} marks={marks} onKey={onKey} keyboard={usingPiano} focusMidi={q.piano.given[0]} />
           {usingPiano && (
@@ -338,7 +370,14 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
         </div>
       )}
 
-      {!usingPiano && (
+      {usingSing && (
+        <div className="sing-answer">
+          <PitchMeter reading={reading} state={micState} />
+          <p className="hint">Hold a steady note for a moment. The app ignores the mic while it is playing.</p>
+        </div>
+      )}
+
+      {!usingPiano && !usingSing && (
         <div className={`answers ${q.parts[lastPartIdx].choices.length > 8 ? "dense" : ""}`}>
           {q.parts[lastPartIdx].choices.map((c, i) => {
             const p = q.parts[lastPartIdx];

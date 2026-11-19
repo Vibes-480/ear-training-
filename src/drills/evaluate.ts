@@ -50,3 +50,31 @@ export function evaluatePiano(q: Question, played: number[]): string {
   const other = catalog.find((c) => pcSetKey(c.degrees.map(degreeSemitones)) === key);
   return other ? other.id : OTHER;
 }
+
+/** Can this question be answered by singing one note? */
+export function canSing(q: Question): boolean {
+  return !!q.piano && (q.piano.mode === "interval" || q.piano.mode === "single" || q.piano.mode === "degree");
+}
+
+/**
+ * Score a sung note. Octaves are ignored because the question may be outside the
+ * singer's range: an interval counts by its size within the octave.
+ */
+export function evaluateSung(q: Question, sung: number): string {
+  if (!q.piano) return OTHER;
+  const task = q.piano;
+  const mod12 = (n: number) => ((n % 12) + 12) % 12;
+  if (task.mode === "single") return String(mod12(sung));
+  if (task.mode === "degree") return evaluatePiano(q, [sung]);
+  if (task.mode === "interval") {
+    const given = task.given[0];
+    const diff = task.direction === "down" ? mod12(given - sung) : mod12(sung - given);
+    const ids = q.parts[0].choices.map((c) => c.id);
+    const answer = INTERVALS.find((i) => i.id === q.parts[0].answer);
+    if (answer && mod12(answer.semitones) === diff) return answer.id;
+    const offered = INTERVALS.find((i) => ids.includes(i.id) && mod12(i.semitones) === diff);
+    if (offered) return offered.id;
+    return INTERVALS.find((i) => !i.compound && mod12(i.semitones) === diff)?.id ?? OTHER;
+  }
+  return OTHER;
+}

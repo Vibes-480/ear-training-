@@ -1,6 +1,6 @@
 import type { SpelledNote } from "../theory/notes";
 
-export type DrillId = "intervals" | "chords" | "scales" | "pitch" | "progressions" | "functional" | "chordtones";
+export type DrillId = "intervals" | "chords" | "scales" | "pitch" | "progressions" | "functional" | "chordtones" | "tuning";
 
 export interface Choice {
   id: string;
@@ -71,6 +71,8 @@ export interface Question {
   lead?: PlayEvent[];
   /** Played underneath the question, starting with it (e.g. a drone). */
   under?: PlayEvent[];
+  /** Called once the question is answered (adaptive drills). */
+  onResult?: (correct: boolean) => void;
   /** Extra facts the UI can use, e.g. interval direction for song references. */
   meta?: {
     direction?: "asc" | "desc" | "harm";
@@ -139,6 +141,13 @@ export interface ChordToneConfig {
   tones: string[];
 }
 
+export interface TuningConfig {
+  /** One note after the other, or both together (listen for beating). */
+  modes: ("sequence" | "together")[];
+  /** Include questions where the notes are in tune. */
+  inTune: boolean;
+}
+
 export interface DrillConfigs {
   intervals: IntervalConfig;
   chords: ChordConfig;
@@ -147,4 +156,5 @@ export interface DrillConfigs {
   progressions: ProgressionConfig;
   functional: FunctionalConfig;
   chordtones: ChordToneConfig;
+  tuning: TuningConfig;
 }

@@ -34,7 +34,7 @@ export interface Settings {
   /** Questions per session. */
   sessionLength: number;
   /** Default answer method. */
-  inputMode: "buttons" | "piano";
+  inputMode: "buttons" | "piano" | "sing";
   theme: "system" | "light" | "dark";
   /** Questions per day to hit the daily goal. */
   dailyGoal: number;
@@ -50,6 +50,24 @@ export interface Settings {
   context: "off" | "cadence" | "drone";
   /** Show answers on a music staff too. */
   showStaff: boolean;
+  /** Comfortable singing range (MIDI), measured by the range check. */
+  voiceRange: { lo: number; hi: number } | null;
+  sing: SingSettings;
+}
+
+export interface SingSettings {
+  mode: "match" | "intervals" | "sightsing";
+  intervals: string[];
+  /** Degrees used for sight-singing melodies. */
+  degrees: string[];
+  /** Notes per sight-singing melody. */
+  length: number;
+  /** How close counts as in tune, in cents. */
+  tolerance: number;
+  /** Accept the right note in any octave. */
+  anyOctave: boolean;
+  /** Seconds allowed per note before it counts as a miss. */
+  timeLimit: number;
 }
 
 const KEY = "et.settings.v1";
@@ -75,9 +93,23 @@ export const DEFAULT_SETTINGS: Settings = {
   songRefEdits: {},
   context: "off",
   showStaff: true,
+  voiceRange: null,
+  sing: {
+    mode: "match",
+    intervals: ["M2", "m3", "M3", "P4", "P5", "M6", "P8"],
+    degrees: ["1", "2", "3", "4", "5", "6", "7"],
+    length: 4,
+    tolerance: 35,
+    anyOctave: true,
+    timeLimit: 10,
+  },
 };
 
-let current: Settings = { ...DEFAULT_SETTINGS, ...loadJSON<Partial<Settings>>(KEY, {}) };
+function withDefaults(saved: Partial<Settings>): Settings {
+  return { ...DEFAULT_SETTINGS, ...saved, sing: { ...DEFAULT_SETTINGS.sing, ...saved.sing } };
+}
+
+let current: Settings = withDefaults(loadJSON<Partial<Settings>>(KEY, {}));
 const listeners = new Set<() => void>();
 
 export function getSettings(): Settings {
@@ -92,7 +124,7 @@ export function updateSettings(patch: Partial<Settings>): void {
 
 /** Replace all settings (backup restore / cloud sync). Unknown keys fall back to defaults. */
 export function replaceSettings(next: Partial<Settings>): void {
-  current = { ...DEFAULT_SETTINGS, ...next };
+  current = withDefaults(next);
   saveJSON(KEY, current);
   listeners.forEach((l) => l());
 }

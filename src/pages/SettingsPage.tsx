@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { audio } from "../audio/engine";
 import { Switch } from "../components/DrillOptions";
-import { COMMON_ROOTS, spelledName } from "../theory/notes";
+import { COMMON_ROOTS, midiName, spelledName } from "../theory/notes";
+import { Link } from "react-router-dom";
 import { INTERVALS } from "../theory/catalog";
 import { SONG_REFS } from "../theory/songs";
 import { useState } from "react";
@@ -132,6 +133,7 @@ export function SettingsPage() {
           <select value={s.inputMode} onChange={(e) => updateSettings({ inputMode: e.target.value as Settings["inputMode"] })}>
             <option value="buttons">Buttons</option>
             <option value="piano">Piano</option>
+            <option value="sing">Singing (where possible)</option>
           </select>
         </label>
         <label className="field">
@@ -141,6 +143,15 @@ export function SettingsPage() {
             <option value="degrees">Scale degrees (1, ♭3, 5)</option>
           </select>
         </label>
+        <Switch checked={s.showStaff} onChange={(v) => updateSettings({ showStaff: v })} label="Show answers on a staff" hint="Music notation under each answer" />
+        <div className="field-inline">
+          <span>
+            Voice range: <strong>{s.voiceRange ? `${midiName(s.voiceRange.lo)} – ${midiName(s.voiceRange.hi)}` : "not set"}</strong>
+          </span>
+          <Link to="/sing" className="link">
+            {s.voiceRange ? "Check again in Singing" : "Set up in Singing"}
+          </Link>
+        </div>
         <Switch checked={s.focusWeak} onChange={(v) => updateSettings({ focusWeak: v })} label="Focus on weak spots" hint="Ask the things you miss more often" />
         <Switch checked={s.autoAdvance} onChange={(v) => updateSettings({ autoAdvance: v })} label="Auto-advance" hint="Go to the next question right after a correct answer" />
       </section>

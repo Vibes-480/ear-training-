@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { audio } from "../audio/engine";
 import { DRILL_INFO } from "../drills/config";
-import { HARMONY_DRILLS, HEARING_DRILLS } from "../drills/registry";
+import { HARMONY_DRILLS, HEARING_DRILLS, PITCH_DRILLS } from "../drills/registry";
 import type { DrillId } from "../drills/types";
 import { usePresets } from "../store/presets";
 import { currentStreak, localDay, useProgress, type Progress } from "../store/progress";
@@ -50,6 +50,17 @@ export function DrillGrid({ drills, p }: { drills: DrillId[]; p: Progress }) {
         );
       })}
     </div>
+  );
+}
+
+export function ToolCard({ to, title, blurb, p, statKey, meta }: { to: string; title: string; blurb: string; p: Progress; statKey?: string; meta?: string }) {
+  const acc = statKey ? drillAccuracy(p, statKey) : null;
+  return (
+    <Link to={to} className="drill-card">
+      <span className="drill-card-title">{title}</span>
+      <span className="drill-card-blurb">{blurb}</span>
+      <span className="drill-card-meta">{meta ?? (acc && acc.pct !== null ? `${acc.pct}% · ${acc.attempts} answers` : acc ? "Not started" : "")}</span>
+    </Link>
   );
 }
 
@@ -109,6 +120,14 @@ export function HomePage() {
 
       <h2 className="section-title">Harmony</h2>
       <DrillGrid drills={HARMONY_DRILLS} p={p} />
+
+      <h2 className="section-title">Voice & pitch</h2>
+      <div className="drill-grid">
+        <ToolCard to="/sing" title="Singing" blurb="Match notes, sing intervals and sight-sing with live pitch feedback" p={p} statKey="sing" />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <DrillGrid drills={PITCH_DRILLS} p={p} />
+      </div>
     </div>
   );
 }

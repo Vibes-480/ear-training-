@@ -33,5 +33,7 @@ export function mainItems(drill: DrillId, cfgs: DrillConfigs): DrillItems {
     }
     case "chordtones":
       return { part: "tone", ids: cfgs.chordtones.tones };
+    case "tuning":
+      return { part: "tuning", ids: cfgs.tuning.inTune ? ["flat", "in", "sharp"] : ["flat", "sharp"] };
   }
 }

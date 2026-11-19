@@ -175,3 +175,19 @@ describe("progress", () => {
     expect(currentStreak(empty, now)).toBe(0);
   });
 });
+
+describe("enharmonic spelling", () => {
+  it("never uses double accidentals for chords and scales", () => {
+    for (let seed = 1; seed < 400; seed++) {
+      for (const drill of ["chords", "scales"] as const) {
+        const cfgs = {
+          ...DEFAULT_CONFIGS,
+          chords: { ...DEFAULT_CONFIGS.chords, enabled: CHORDS.filter((c) => c.id !== "dim7").map((c) => c.id) },
+          scales: { ...DEFAULT_CONFIGS.scales, enabled: ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian", "harmMinor", "melMinor"] },
+        };
+        const q = generate(drill, cfgs, baseSettings, ctx(seed));
+        for (const note of q.notes) expect(Math.abs(note.spelled.acc), `${q.reveal}`).toBeLessThan(2);
+      }
+    }
+  });
+});

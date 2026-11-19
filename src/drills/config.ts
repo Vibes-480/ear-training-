@@ -45,6 +45,10 @@ export const DEFAULT_CONFIGS: DrillConfigs = {
     sets: ["ii-V-I", "I-vi-ii-V"],
     tones: ["1", "3", "5", "7"],
   },
+  tuning: {
+    modes: ["sequence"],
+    inTune: true,
+  },
 };
 
 export const DRILL_INFO: Record<DrillId, { title: string; blurb: string }> = {
@@ -55,6 +59,7 @@ export const DRILL_INFO: Record<DrillId, { title: string; blurb: string }> = {
   progressions: { title: "Progressions", blurb: "Roman numerals and cadences in major and minor" },
   functional: { title: "Scale degrees", blurb: "Hear each note's role in the key, melody or bass" },
   chordtones: { title: "Chord tones", blurb: "Name the note over each chord of a backing track" },
+  tuning: { title: "Tuning", blurb: "Spot notes a few cents flat or sharp. Gets harder as you improve" },
 };
 
 function withDefaults(saved: Partial<DrillConfigs>): DrillConfigs {
@@ -66,6 +71,7 @@ function withDefaults(saved: Partial<DrillConfigs>): DrillConfigs {
     progressions: { ...DEFAULT_CONFIGS.progressions, ...saved.progressions },
     functional: { ...DEFAULT_CONFIGS.functional, ...saved.functional },
     chordtones: { ...DEFAULT_CONFIGS.chordtones, ...saved.chordtones },
+    tuning: { ...DEFAULT_CONFIGS.tuning, ...saved.tuning },
   };
 }
 

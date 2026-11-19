@@ -131,3 +131,34 @@ export function spellDegreeBelow(upper: SpelledNote, d: string): SpelledNote {
   if (acc < -6) acc += 12;
   return { letter, acc };
 }
+
+/** The same pitch spelled with the neighbouring letter (D♭ ↔ C♯, F ↔ E♯ is never chosen). */
+export function enharmonic(n: SpelledNote): SpelledNote | null {
+  if (n.acc === -1) {
+    const idx = LETTERS.indexOf(n.letter);
+    const letter = LETTERS[(idx + 6) % 7];
+    const acc = pitchClass(n) - LETTER_PC[letter];
+    const fixed = acc < -6 ? acc + 12 : acc > 6 ? acc - 12 : acc;
+    return fixed === 1 ? { letter, acc: 1 } : null;
+  }
+  if (n.acc === 1) {
+    const idx = LETTERS.indexOf(n.letter);
+    const letter = LETTERS[(idx + 1) % 7];
+    const acc = pitchClass(n) - LETTER_PC[letter];
+    const fixed = acc < -6 ? acc + 12 : acc > 6 ? acc - 12 : acc;
+    return fixed === -1 ? { letter, acc: -1 } : null;
+  }
+  return null;
+}
+
+/** Pick the root spelling (as given or enharmonic) that spells these degrees most simply. */
+export function bestRootSpelling(root: SpelledNote, degrees: string[]): SpelledNote {
+  const alt = enharmonic(root);
+  if (!alt) return root;
+  const cost = (r: SpelledNote) =>
+    degrees.reduce((sum, d) => {
+      const a = Math.abs(spellDegree(r, d).acc);
+      return sum + (a >= 2 ? 10 : a);
+    }, Math.abs(r.acc));
+  return cost(alt) < cost(root) ? alt : root;
+}
