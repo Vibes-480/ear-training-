@@ -137,6 +137,20 @@ function ChordOptions() {
           </Group>
         );
       })}
+      <Group title="Voicings">
+        {(
+          [
+            ["close", "Close"],
+            ["open", "Open (drop-2)"],
+            ["shell", "Shell (1-3-7)"],
+            ["rootless", "Rootless (jazz)"],
+          ] as const
+        ).map(([id, name]) => (
+          <Chip key={id} on={(c.voicings ?? ["close"]).includes(id)} onClick={() => updateConfig("chords", { voicings: toggle(c.voicings ?? ["close"], id) })}>
+            {name}
+          </Chip>
+        ))}
+      </Group>
       <Group title="Inversions">
         {[0, 1, 2, 3].map((i) => (
           <Chip key={i} on={c.inversions.includes(i)} onClick={() => updateConfig("chords", { inversions: toggle(c.inversions, i) })}>
@@ -462,6 +476,7 @@ export function configProblem(drill: DrillId, cfgs: ReturnType<typeof useConfigs
       if (cfgs.chords.enabled.length < 2) return "Pick at least two chord types.";
       if (!cfgs.chords.inversions.length) return "Pick at least one inversion.";
       if (!cfgs.chords.playback.length) return "Pick block or arpeggiated playback.";
+      if (!(cfgs.chords.voicings ?? ["close"]).length) return "Pick at least one voicing.";
       return null;
     case "scales":
       if (cfgs.scales.enabled.length < 2) return "Pick at least two scales.";

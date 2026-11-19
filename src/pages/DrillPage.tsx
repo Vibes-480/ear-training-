@@ -10,6 +10,8 @@ import { deletePreset, savePreset, usePresets } from "../store/presets";
 import { recordSession } from "../store/progress";
 import { getSettings, useSettings } from "../store/settings";
 import { renderSongRefs } from "../components/SongRefs";
+import { findLevel, findModule, moduleConfigs } from "../drills/packs";
+import { recordLevel } from "../store/curriculum";
 
 type Phase = "setup" | "running" | "summary";
 
@@ -24,6 +26,10 @@ export function DrillPage() {
 
   const presetId = params.get("preset");
   const preset = presets.find((p) => p.id === presetId && p.drill === drill) ?? null;
+  // Genre-pack module or curriculum level: fixed options, independent of yours.
+  const level = findLevel(params.get("level"));
+  const packModule = findModule(params.get("pack"), params.get("module"));
+  const fixed = level && level.drill === drill ? level : packModule && packModule.drill === drill ? packModule : null;
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [loading, setLoading] = useState(false);
@@ -35,8 +41,8 @@ export function DrillPage() {
 
   // A preset runs with its own options, leaving the drill's saved options alone.
   const effective: DrillConfigs = useMemo(
-    () => (preset && drill ? { ...cfgs, [drill]: preset.config } : cfgs),
-    [preset, drill, cfgs],
+    () => (fixed ? moduleConfigs(fixed) : preset && drill ? { ...cfgs, [drill]: preset.config } : cfgs),
+    [fixed, preset, drill, cfgs],
   );
 
   const makeQuestion = useCallback(
@@ -74,7 +80,9 @@ export function DrillPage() {
   const info = DRILL_INFO[drill];
   const problem = configProblem(drill, effective);
   const drillPresets = presets.filter((p) => p.drill === drill);
-  const title = preset ? preset.name : info.title;
+  const title = fixed ? fixed.title : preset ? preset.name : info.title;
+  const total = level ? level.questions : settings.sessionLength;
+  const backTo = level ? "/learn" : packModule ? "/packs" : "/";
 
   if (phase === "running") {
     return (
@@ -83,11 +91,12 @@ export function DrillPage() {
         <QuestionRunner
           key={runKey}
           title={title}
-          total={settings.sessionLength}
+          total={total}
           makeQuestion={makeQuestion}
           onExit={() => setPhase("setup")}
           onDone={(r) => {
             recordSession({ at: Date.now(), drill, total: r.n, correct: r.correct });
+            if (level) recordLevel(level.id, r.n ? r.correct / r.n : 0);
             setResult(r);
             setPhase("summary");
           }}
@@ -100,15 +109,30 @@ export function DrillPage() {
   if (phase === "summary" && result) {
     return (
       <div className="page">
+        {level && (
+          <div className={`level-result ${result.correct / Math.max(1, result.n) >= level.pass ? "ok" : "bad"}`}>
+            {result.correct / Math.max(1, result.n) >= level.pass
+              ? `Level passed! The next level is unlocked.`
+              : `You need ${Math.round(level.pass * 100)}% to pass this level. Keep going, you'll get there.`}
+          </div>
+        )}
         <SessionSummary result={result}>
-          <button type="button" className="btn primary" onClick={start}>
-            Go again
-          </button>
-          <button type="button" className="btn" onClick={() => setPhase("setup")}>
-            Change options
-          </button>
-          <Link to="/" className="btn">
-            Home
+          {level && result.correct / Math.max(1, result.n) >= level.pass ? (
+            <Link to="/learn" className="btn primary">
+              Back to levels
+            </Link>
+          ) : (
+            <button type="button" className="btn primary" onClick={start}>
+              {level ? "Try again" : "Go again"}
+            </button>
+          )}
+          {!fixed && (
+            <button type="button" className="btn" onClick={() => setPhase("setup")}>
+              Change options
+            </button>
+          )}
+          <Link to={backTo} className="btn">
+            {level ? "All levels" : packModule ? "All packs" : "Home"}
           </Link>
         </SessionSummary>
       </div>
@@ -117,13 +141,16 @@ export function DrillPage() {
 
   return (
     <div className="page">
-      <Link to="/" className="back">
-        ← Home
+      <Link to={backTo} className="back">
+        ← {level ? "Levels" : packModule ? "Packs" : "Home"}
       </Link>
       <h1>{title}</h1>
-      <p className="lede">{preset ? `Preset for ${info.title.toLowerCase()}` : info.blurb}</p>
+      <p className="lede">
+        {fixed ? fixed.blurb : preset ? `Preset for ${info.title.toLowerCase()}` : info.blurb}
+        {level && ` · ${level.questions} questions, ${Math.round(level.pass * 100)}% to pass`}
+      </p>
 
-      {(drillPresets.length > 0 || preset) && (
+      {!fixed && (drillPresets.length > 0 || preset) && (
         <section className="card">
           <h2 className="card-title">Presets</h2>
           <div className="chips">
@@ -165,7 +192,7 @@ export function DrillPage() {
         </section>
       )}
 
-      {!preset && (
+      {!preset && !fixed && (
         <section className="card">
           <h2 className="card-title">What to practise</h2>
           <DrillOptions drill={drill} />
@@ -201,7 +228,7 @@ export function DrillPage() {
       <div className="sticky-cta">
         {problem && <p className="warn">{problem}</p>}
         <button type="button" className="btn primary big" disabled={!!problem || loading} onClick={start}>
-          {loading ? "Loading sounds…" : `Start ${settings.sessionLength} questions`}
+          {loading ? "Loading sounds…" : `Start ${total} questions`}
         </button>
       </div>
     </div>

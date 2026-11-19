@@ -14,6 +14,7 @@ export const DEFAULT_CONFIGS: DrillConfigs = {
     inversions: [0, 1, 2, 3],
     playback: ["block", "arp"],
     askInversion: false,
+    voicings: ["close"],
   },
   scales: {
     enabled: ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian"],

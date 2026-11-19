@@ -5,6 +5,7 @@ import type { DrillConfigs } from "../drills/types";
 import { getPresets, replacePresets, type Preset } from "./presets";
 import { getProgress, importProgress, type Progress } from "./progress";
 import { getSettings, replaceSettings, type Settings } from "./settings";
+import { getCurriculum, replaceCurriculum, type CurriculumState } from "./curriculum";
 
 export interface Backup {
   app: "ear-trainer";
@@ -14,6 +15,7 @@ export interface Backup {
   settings: Settings;
   configs: DrillConfigs;
   presets: Preset[];
+  curriculum?: CurriculumState;
 }
 
 export function exportAll(): string {
@@ -25,6 +27,7 @@ export function exportAll(): string {
     settings: getSettings(),
     configs: getConfigs(),
     presets: getPresets(),
+    curriculum: getCurriculum(),
   };
   return JSON.stringify(b, null, 2);
 }
@@ -36,6 +39,7 @@ export function importAll(json: string): void {
     if (data.settings) replaceSettings(data.settings);
     if (data.configs) replaceConfigs(data.configs);
     if (Array.isArray(data.presets)) replacePresets(data.presets);
+    if (data.curriculum) replaceCurriculum(data.curriculum);
     return;
   }
   // Version 1 backups held progress only.

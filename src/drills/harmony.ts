@@ -141,7 +141,7 @@ export function generateProgression(cfg: ProgressionConfig, s: KeyOpts, ctx: Gen
 
   let numerals: string[] | undefined;
   if (cfg.style === "common") {
-    let pool = COMMON_PROGRESSIONS[tonality].filter((p) => p.every((n) => allowed.has(n)) && p.slice(1).some((n) => n !== tonic));
+    let pool = (cfg.templates?.[tonality] ?? COMMON_PROGRESSIONS[tonality]).filter((p) => p.every((n) => allowed.has(n)) && p.slice(1).some((n) => n !== tonic));
     if (force) pool = pool.filter((p) => p.slice(1).includes(force));
     if (pool.length) numerals = [...pick(pool, ctx.rng)];
   }

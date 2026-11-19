@@ -4,6 +4,8 @@ import { DRILL_INFO } from "../drills/config";
 import { HARMONY_DRILLS, HEARING_DRILLS, PITCH_DRILLS } from "../drills/registry";
 import type { DrillId } from "../drills/types";
 import { usePresets } from "../store/presets";
+import { CURRICULUM, PACKS } from "../drills/packs";
+import { isPassed, useCurriculum } from "../store/curriculum";
 import { currentStreak, localDay, useProgress, type Progress } from "../store/progress";
 import { useSettings } from "../store/settings";
 
@@ -68,6 +70,7 @@ export function HomePage() {
   const p = useProgress();
   const settings = useSettings();
   const presets = usePresets();
+  const curriculum = useCurriculum();
   const navigate = useNavigate();
   const today = p.days[localDay()];
   const streak = currentStreak(p);
@@ -92,6 +95,11 @@ export function HomePage() {
           </Link>
         </div>
       </section>
+
+      <div className="drill-grid" style={{ marginTop: 12 }}>
+        <ToolCard to="/learn" title="Levels" blurb="A step-by-step path that unlocks as you improve" p={p} meta={`${CURRICULUM.filter((l) => isPassed(curriculum, l.id)).length} of ${CURRICULUM.length} passed`} />
+        <ToolCard to="/packs" title="Genre packs" blurb="Jazz, gospel, pop, modal, classical and blues drills" p={p} meta={`${PACKS.length} packs`} />
+      </div>
 
       {presets.length > 0 && (
         <>
@@ -129,9 +137,10 @@ export function HomePage() {
         <DrillGrid drills={PITCH_DRILLS} p={p} />
       </div>
 
-      <h2 className="section-title">Dictation</h2>
+      <h2 className="section-title">Dictation & transcription</h2>
       <div className="drill-grid">
         <ToolCard to="/dictation" title="Melody & rhythm" blurb="Hear a melody or rhythm, then write it on the staff or tap it back" p={p} statKey="melody" />
+        <ToolCard to="/transcribe" title="Transcribe" blurb="Slow down and loop a song or YouTube video to work it out by ear" p={p} meta="Tool" />
       </div>
     </div>
   );

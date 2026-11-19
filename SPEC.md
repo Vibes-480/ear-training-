@@ -57,4 +57,4 @@ A personal ear trainer covering everything needed to develop strong relative pit
 4. **Voice** ✅: mic pitch detection, voice-range detection, sight-singing, tuning drills.
 5. **Dictation** ✅: melody and rhythm on a staff.
 6. **Accounts** ✅: Supabase login and cloud sync.
-7. **Extras:** curriculum, genre packs, transcription tool.
+7. **Extras** ✅: curriculum, genre packs, transcription tool.

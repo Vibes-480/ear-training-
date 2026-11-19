@@ -12,6 +12,7 @@ import { getPresets, onPresetsChange, replacePresets } from "../store/presets";
 import { getProgress, onProgressChange, replaceProgress, type Progress } from "../store/progress";
 import { getSettings, onSettingsChange, replaceSettings } from "../store/settings";
 import { loadJSON, saveJSON } from "../store/storage";
+import { getCurriculum, replaceCurriculum, subscribe as onCurriculumChange, type CurriculumState } from "../store/curriculum";
 import { mergeProgress, newer, sameProgress } from "./merge";
 
 const URL_ = import.meta.env.VITE_SUPABASE_URL;
@@ -87,7 +88,7 @@ async function push(): Promise<void> {
     settings: getSettings(),
     configs: getConfigs(),
     presets: getPresets(),
-    extra: { meta },
+    extra: { meta, curriculum: getCurriculum() },
     updated_at: new Date().toISOString(),
   });
   if (error) setState({ status: "error", error: friendly(error.message) });
@@ -128,6 +129,19 @@ export async function syncNow(): Promise<void> {
         if (pr.fromRemote) {
           replacePresets(pr.value);
           meta.presetsAt = remoteMeta.presetsAt ?? 0;
+        }
+        // Levels: keep the best result from either device.
+        const rc: CurriculumState | undefined = data.extra?.curriculum;
+        if (rc?.best) {
+          const best = { ...getCurriculum().best };
+          let changed = false;
+          for (const [id, r] of Object.entries(rc.best)) {
+            if (!best[id] || r.pct > best[id].pct) {
+              best[id] = r;
+              changed = true;
+            }
+          }
+          if (changed) replaceCurriculum({ best });
         }
         saveMeta();
       } finally {
@@ -179,6 +193,7 @@ export function initSync(): void {
   onConfigsChange(touch("configsAt"));
   onPresetsChange(touch("presetsAt"));
   onProgressChange(() => schedulePush());
+  onCurriculumChange(() => schedulePush());
 
   const c = sb();
   if (!c) return;

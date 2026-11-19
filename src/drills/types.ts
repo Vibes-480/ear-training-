@@ -92,11 +92,15 @@ export interface IntervalConfig {
   directions: ("asc" | "desc" | "harm")[];
 }
 
+export type Voicing = "close" | "open" | "shell" | "rootless";
+
 export interface ChordConfig {
   enabled: string[];
   inversions: number[];
   playback: ("block" | "arp")[];
   askInversion: boolean;
+  /** How the chord is spread out. Inversions only apply to close voicings. */
+  voicings: Voicing[];
 }
 
 export interface ScaleConfig {
@@ -125,6 +129,8 @@ export interface ProgressionConfig {
   style: "common" | "random";
   sevenths: boolean;
   cadences: string[];
+  /** Genre packs: use these progressions instead of the built-in common ones. */
+  templates?: { major?: string[][]; minor?: string[][] };
 }
 
 export interface FunctionalConfig {

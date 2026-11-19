@@ -1,6 +1,6 @@
 // Builds questions for every drill from the drill config and the user's settings.
 
-import { CHORDS, INTERVALS, INVERSION_NAMES, SCALES } from "../theory/catalog";
+import { CHORDS, INTERVALS, INVERSION_NAMES, SCALES, type ChordDef } from "../theory/catalog";
 import {
   COMMON_ROOTS,
   degreeSemitones,
@@ -10,6 +10,7 @@ import {
   spelledName,
   defaultSpelling,
   bestRootSpelling,
+  parseDegree,
   type SpelledNote,
 } from "../theory/notes";
 import type { Settings } from "../store/settings";
@@ -28,6 +29,7 @@ import type {
   QuestionNote,
   QuestionPart,
   ScaleConfig,
+  Voicing,
 } from "./types";
 
 export interface GenContext {
@@ -151,6 +153,62 @@ export function chordVoicing(degrees: string[], inversion: number): number[] {
   return semis.map((s, i) => (i < inversion ? s + 12 : s));
 }
 
+export const VOICING_NAMES: Record<Voicing, string> = {
+  close: "close position",
+  open: "open (drop-2) voicing",
+  shell: "shell voicing (root, 3rd, 7th)",
+  rootless: "rootless voicing over a bass root",
+};
+
+/**
+ * Notes of a chord voicing, as offsets from the root with their degrees.
+ * - close: stacked within an octave, in the given inversion
+ * - open: drop-2 (second-highest note down an octave), or a spread triad
+ * - shell: root low, 3rd and 7th above (jazz left hand)
+ * - rootless: root low in the bass, then 3-5-7-9 or 7-9-3-5 above (jazz piano)
+ */
+export function voiceChord(def: ChordDef, inv: number, voicing: Voicing): { offset: number; degree: string }[] {
+  const close = chordVoicing(def.degrees, inv).map((offset, i) => ({ offset, degree: def.degrees[i] }));
+  const byNumber = (n: number) => def.degrees.find((d) => parseDegree(d).number === n);
+  if (voicing === "open") {
+    const sorted = [...close].sort((a, b) => a.offset - b.offset);
+    if (sorted.length >= 4) {
+      const k = sorted.length - 2;
+      sorted[k] = { ...sorted[k], offset: sorted[k].offset - 12 };
+      return sorted;
+    }
+    // Spread triad: root, 5th, 3rd an octave up.
+    return sorted.map((n, i) => (i === 1 ? { ...n, offset: n.offset + 12 } : n));
+  }
+  if (voicing === "shell") {
+    const third = byNumber(3) ?? byNumber(4) ?? byNumber(2);
+    const top = byNumber(7) ?? (def.degrees.includes("6") ? "6" : byNumber(5));
+    const out = [{ offset: -12, degree: "1" }];
+    if (third) out.push({ offset: degreeSemitones(third) % 12, degree: third });
+    if (top) out.push({ offset: degreeSemitones(top) % 12, degree: top });
+    return out;
+  }
+  if (voicing === "rootless") {
+    const third = byNumber(3) ?? byNumber(4) ?? "3";
+    const fifth = def.degrees.find((d) => parseDegree(d).number === 13) ?? byNumber(5) ?? "5";
+    const seventh = byNumber(7) ?? (def.degrees.includes("6") ? "6" : undefined);
+    const ninth = def.degrees.find((d) => parseDegree(d).number === 9) ?? (def.id === "m7b5" || def.id === "dim7" ? undefined : "9");
+    const upper = [third, fifth, seventh, ninth].filter((d): d is string => !!d).map((d) => ({ degree: d, offset: degreeSemitones(d) % 12 }));
+    // Alternate between the "A" form (3rd at the bottom) and "B" form (7th at the bottom).
+    const startWith7 = inv % 2 === 1 && seventh;
+    let prev = -1;
+    const order = startWith7 ? [...upper.slice(2), ...upper.slice(0, 2)] : upper;
+    const stacked = order.map((n) => {
+      let o = n.offset;
+      while (o <= prev) o += 12;
+      prev = o;
+      return { ...n, offset: o };
+    });
+    return [{ offset: -12, degree: "1" }, ...stacked];
+  }
+  return close;
+}
+
 export function maxInversion(degrees: string[]): number {
   return Math.min(degrees.length - 1, 3);
 }
@@ -159,15 +217,18 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
   const ids = CHORDS.filter((c) => cfg.enabled.includes(c.id)).map((c) => c.id);
   const id = weightedPick(ids, "quality", ctx);
   const def = CHORDS.find((c) => c.id === id)!;
-  const allowedInv = (cfg.inversions.length ? cfg.inversions : [0]).filter((i) => i <= maxInversion(def.degrees));
+  const voicing = pick(cfg.voicings?.length ? cfg.voicings : (["close"] as Voicing[]), ctx.rng);
+  const allowedInv =
+    voicing === "close" || voicing === "open" ? (cfg.inversions.length ? cfg.inversions : [0]).filter((i) => i <= maxInversion(def.degrees)) : [0];
   const inv = allowedInv.length ? pick(allowedInv, ctx.rng) : 0;
-  const offsets = chordVoicing(def.degrees, inv);
+  const voiced = voiceChord(def, inv, voicing);
+  const offsets = voiced.map((v) => v.offset);
   const r0 = chooseRoot(offsets, s, ctx.rng);
   const r = { ...r0, spelled: bestRootSpelling(r0.spelled, def.degrees) };
   const b = beat(s.tempo);
 
-  const notes: QuestionNote[] = def.degrees
-    .map((d, i) => ({ midi: r.midi + offsets[i], spelled: spellDegree(r.spelled, d), degree: d }))
+  const notes: QuestionNote[] = voiced
+    .map((v) => ({ midi: r.midi + v.offset, spelled: spellDegree(r.spelled, v.degree), degree: v.degree }))
     .sort((a, z) => a.midi - z.midi);
 
   const mode = pick(cfg.playback.length ? cfg.playback : (["block"] as const), ctx.rng);
@@ -188,7 +249,7 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
       answer: id,
     },
   ];
-  if (cfg.askInversion && allowedInv.length > 1) {
+  if (cfg.askInversion && allowedInv.length > 1 && voicing === "close") {
     parts.push({
       key: "inversion",
       prompt: "Which inversion?",
@@ -205,13 +266,17 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
     events,
     notes,
     root: r,
-    reveal: `${spelledName(r.spelled)}${def.symbol} (${def.name}), ${INVERSION_NAMES[inv].toLowerCase()}`,
-    piano: {
-      mode: "set",
-      given: [r.midi],
-      instruction: `Play every note of the chord on the root ${spelledName(r.spelled)}, then press Check`,
-      range: octavesFrom(r.midi, 2),
-    },
+    reveal: `${spelledName(r.spelled)}${def.symbol} (${def.name}), ${voicing === "close" ? INVERSION_NAMES[inv].toLowerCase() : VOICING_NAMES[voicing]}`,
+    // Shell and rootless voicings leave notes out (or add a 9th), so a full chord on the piano can't match them.
+    piano:
+      voicing === "close" || voicing === "open"
+        ? {
+            mode: "set",
+            given: [r.midi],
+            instruction: `Play every note of the chord on the root ${spelledName(r.spelled)}, then press Check`,
+            range: octavesFrom(r.midi, 2),
+          }
+        : undefined,
   };
 }
 
