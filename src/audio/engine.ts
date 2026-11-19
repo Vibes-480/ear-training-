@@ -47,6 +47,13 @@ class AudioEngine {
   private synthVoices: { osc: OscillatorNode[]; gain: GainNode }[] = [];
   private listeners = new Set<Listener>();
   private volume = 0.8;
+  /** AudioContext time when the last scheduled playback ends. */
+  private busyUntil = 0;
+
+  /** True while the app is making sound (used to ignore the mic during playback). */
+  isPlaying(): boolean {
+    return !!this.ctx && this.ctx.currentTime < this.busyUntil;
+  }
 
   /** Must be called from a user gesture the first time (browser autoplay rules). */
   async unlock(): Promise<AudioContext> {
@@ -128,11 +135,18 @@ class AudioEngine {
     let end = 0;
     for (const ev of events) {
       end = Math.max(end, ev.at + ev.dur);
+      const velocity = ev.velocity ?? 80;
       for (const midi of ev.midi) {
-        if (inst) inst.start({ note: midi, time: t0 + ev.at, duration: ev.dur, velocity: 80 });
-        else this.synthNote(midi, t0 + ev.at, ev.dur);
+        if (midi < 0) {
+          // Negative "notes" are metronome clicks: -1 = accent, -2 = normal.
+          this.click(t0 + ev.at, midi === -1);
+          continue;
+        }
+        if (inst) inst.start({ note: midi, time: t0 + ev.at, duration: ev.dur, velocity, detune: ev.detune ?? 0 });
+        else this.synthNote(midi, t0 + ev.at, ev.dur, velocity, ev.detune ?? 0);
       }
     }
+    this.busyUntil = t0 + end + 0.25;
     return end + offset;
   }
 
@@ -145,6 +159,7 @@ class AudioEngine {
   }
 
   stop() {
+    this.busyUntil = 0;
     this.instruments.forEach((inst) => inst.stop());
     const now = this.ctx?.currentTime ?? 0;
     for (const v of this.synthVoices) {
@@ -159,15 +174,32 @@ class AudioEngine {
     this.synthVoices = [];
   }
 
-  private synthNote(midi: number, time: number, dur: number) {
+  /** Short percussive click for count-ins and metronome. */
+  click(time: number, accent: boolean) {
     if (!this.ctx || !this.master) return;
     const ctx = this.ctx;
-    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = accent ? 1600 : 1100;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(accent ? 0.25 : 0.15, time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+    osc.connect(gain).connect(this.master);
+    osc.start(time);
+    osc.stop(time + 0.06);
+  }
+
+  private synthNote(midi: number, time: number, dur: number, velocity = 80, detune = 0) {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12 + detune / 1200);
+    const level = 0.22 * (velocity / 80);
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(0.22, time + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.12, time + 0.25);
-    gain.gain.setValueAtTime(0.12, time + Math.max(0.26, dur));
+    gain.gain.linearRampToValueAtTime(level, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(level * 0.55, time + 0.25);
+    gain.gain.setValueAtTime(level * 0.55, time + Math.max(0.26, dur));
     gain.gain.exponentialRampToValueAtTime(0.0001, time + dur + 0.35);
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";

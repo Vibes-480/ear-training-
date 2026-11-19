@@ -24,6 +24,10 @@ export interface PlayEvent {
   at: number;
   /** Length in seconds. */
   dur: number;
+  /** 0–127, default 80. */
+  velocity?: number;
+  /** Detune in cents (tuning drills). */
+  detune?: number;
 }
 
 export interface QuestionNote {
@@ -45,6 +49,8 @@ export interface PianoTask {
   instruction: string;
   /** For "interval": whether the answer note is above or below the given note. */
   direction?: "up" | "down";
+  /** Keys to show: lowest and highest MIDI note (both Cs). */
+  range: [number, number];
 }
 
 export interface Question {
@@ -58,8 +64,12 @@ export interface Question {
   /** Full description revealed after answering, e.g. "E♭ major 7, 1st inversion". */
   reveal: string;
   piano?: PianoTask;
-  /** Optional reference sound played before the question (pitch drill). */
-  reference?: PlayEvent[];
+  /** Played before the question: a reference note, cadence or count-in. */
+  lead?: PlayEvent[];
+  /** Played underneath the question, starting with it (e.g. a drone). */
+  under?: PlayEvent[];
+  /** Extra facts the UI can use, e.g. interval direction for song references. */
+  meta?: { direction?: "asc" | "desc" | "harm" };
 }
 
 export interface IntervalConfig {

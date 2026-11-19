@@ -36,6 +36,20 @@ export interface Settings {
   /** Default answer method. */
   inputMode: "buttons" | "piano";
   theme: "system" | "light" | "dark";
+  /** Questions per day to hit the daily goal. */
+  dailyGoal: number;
+  /** Questions in the smart daily session. */
+  dailyLength: number;
+  /** Drills mixed into the daily session. */
+  dailyDrills: string[];
+  /** Show famous-song references for intervals after answering. */
+  songRefs: boolean;
+  /** Your own song references, by interval id. Replace the built-in ones. */
+  songRefEdits: Record<string, { asc?: string; desc?: string }>;
+  /** Set the key before interval, scale and note questions. */
+  context: "off" | "cadence" | "drone";
+  /** Show answers on a music staff too. */
+  showStaff: boolean;
 }
 
 const KEY = "et.settings.v1";
@@ -54,6 +68,13 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionLength: 20,
   inputMode: "buttons",
   theme: "system",
+  dailyGoal: 40,
+  dailyLength: 20,
+  dailyDrills: ["intervals", "chords", "scales", "pitch"],
+  songRefs: true,
+  songRefEdits: {},
+  context: "off",
+  showStaff: true,
 };
 
 let current: Settings = { ...DEFAULT_SETTINGS, ...loadJSON<Partial<Settings>>(KEY, {}) };
@@ -65,6 +86,13 @@ export function getSettings(): Settings {
 
 export function updateSettings(patch: Partial<Settings>): void {
   current = { ...current, ...patch };
+  saveJSON(KEY, current);
+  listeners.forEach((l) => l());
+}
+
+/** Replace all settings (backup restore / cloud sync). Unknown keys fall back to defaults. */
+export function replaceSettings(next: Partial<Settings>): void {
+  current = { ...DEFAULT_SETTINGS, ...next };
   saveJSON(KEY, current);
   listeners.forEach((l) => l());
 }

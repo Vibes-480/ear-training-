@@ -2,6 +2,9 @@ import { useSyncExternalStore } from "react";
 import { audio } from "../audio/engine";
 import { Switch } from "../components/DrillOptions";
 import { COMMON_ROOTS, spelledName } from "../theory/notes";
+import { INTERVALS } from "../theory/catalog";
+import { SONG_REFS } from "../theory/songs";
+import { useState } from "react";
 import { INSTRUMENTS, updateSettings, useSettings, type InstrumentId, type Settings } from "../store/settings";
 
 function useLoadState(id: InstrumentId) {
@@ -84,6 +87,35 @@ export function SettingsPage() {
       </section>
 
       <section className="card">
+        <h2 className="card-title">Musical context</h2>
+        <label className="field">
+          <span>Set the key before each question</span>
+          <select value={s.context} onChange={(e) => updateSettings({ context: e.target.value as Settings["context"] })}>
+            <option value="off">Off</option>
+            <option value="cadence">Play a cadence (I–IV–V–I)</option>
+            <option value="drone">Play a drone underneath</option>
+          </select>
+          <span className="hint">Applies to intervals and scales. You hear notes in a key, the way they appear in real music.</span>
+        </label>
+        <Switch checked={s.songRefs} onChange={(v) => updateSettings({ songRefs: v })} label="Song references" hint="After an interval, show a famous song that starts with it" />
+        {s.songRefs && <SongRefEditor />}
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">Daily goal</h2>
+        <label className="field">
+          <span>Questions per day</span>
+          <select value={s.dailyGoal} onChange={(e) => updateSettings({ dailyGoal: Number(e.target.value) })}>
+            {[20, 30, 40, 60, 80, 100, 150].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="card">
         <h2 className="card-title">Practice</h2>
         <label className="field">
           <span>Questions per session</span>
@@ -125,5 +157,66 @@ export function SettingsPage() {
         </label>
       </section>
     </div>
+  );
+}
+
+function SongRefEditor() {
+  const s = useSettings();
+  const [open, setOpen] = useState(false);
+  if (!open)
+    return (
+      <button type="button" className="link" onClick={() => setOpen(true)}>
+        Edit song references
+      </button>
+    );
+  const set = (id: string, dir: "asc" | "desc", value: string) =>
+    updateSettings({ songRefEdits: { ...s.songRefEdits, [id]: { ...s.songRefEdits[id], [dir]: value } } });
+  return (
+    <div className="song-editor">
+      <p className="hint">Use songs you know well. Leave a box empty to show nothing for that interval.</p>
+      <div className="song-grid">
+        <span className="muted small">Interval</span>
+        <span className="muted small">Up</span>
+        <span className="muted small">Down</span>
+        {INTERVALS.filter((i) => !i.compound).map((i) => (
+          <SongRow key={i.id} id={i.id} name={i.short} edits={s.songRefEdits} set={set} />
+        ))}
+      </div>
+      <div className="row-buttons">
+        <button type="button" className="link" onClick={() => updateSettings({ songRefEdits: {} })}>
+          Restore the built-in songs
+        </button>
+        <button type="button" className="link" onClick={() => setOpen(false)}>
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SongRow({
+  id,
+  name,
+  edits,
+  set,
+}: {
+  id: string;
+  name: string;
+  edits: Settings["songRefEdits"];
+  set: (id: string, dir: "asc" | "desc", value: string) => void;
+}) {
+  return (
+    <>
+      <span className="song-name">{name}</span>
+      {(["asc", "desc"] as const).map((dir) => (
+        <input
+          key={dir}
+          className="text-input"
+          value={edits[id]?.[dir] ?? SONG_REFS[id]?.[dir] ?? ""}
+          onChange={(e) => set(id, dir, e.target.value)}
+          aria-label={`${name} ${dir === "asc" ? "up" : "down"}`}
+        />
+      ))}
+    </>
   );
 }

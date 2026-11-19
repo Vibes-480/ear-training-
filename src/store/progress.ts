@@ -12,12 +12,32 @@ export interface ItemStat {
   /** Last results, newest last (1 = correct). Max RECENT_MAX entries. */
   recent: number[];
   lastSeen: number;
+  /** Spaced-repetition box: 0 = new or just missed, higher = known longer. */
+  box?: number;
+  /** When the item is next due for review (ms timestamp). */
+  due?: number;
 }
+
+/** How long to wait before reviewing an item again, per box. */
+export const BOX_INTERVALS_MS = [
+  5 * 60_000, // box 0: a few minutes
+  20 * 3_600_000, // 1: next day
+  2 * 86_400_000,
+  5 * 86_400_000,
+  11 * 86_400_000,
+  24 * 86_400_000,
+  50 * 86_400_000,
+];
+const MAX_BOX = BOX_INTERVALS_MS.length - 1;
 
 export interface DayStat {
   questions: number;
   correct: number;
   ms: number;
+  /** Per-drill counts for charts. ms = total answer time of correct answers. */
+  byDrill?: Record<string, { q: number; c: number; ms: number }>;
+  /** The daily session was completed this day. */
+  dailyDone?: boolean;
 }
 
 export interface SessionRecord {
@@ -85,12 +105,21 @@ export function applyAttempt(p: Progress, a: AttemptInput): Progress {
   const ok = a.correctId === a.answeredId;
   const key = itemKey(a.drill, a.part, a.correctId);
   const prev = p.items[key] ?? { attempts: 0, correct: 0, totalMs: 0, recent: [], lastSeen: 0 };
+  // Leitner-style scheduling. A correct answer only promotes the item when it was due
+  // (or new), so drilling the same item ten times in a row doesn't fake long-term memory.
+  const box = prev.box ?? 0;
+  const wasDue = prev.due === undefined || at >= prev.due;
+  let nextBox = box;
+  if (!ok) nextBox = Math.max(0, box - 2);
+  else if (wasDue) nextBox = Math.min(MAX_BOX, box + 1);
   const item: ItemStat = {
     attempts: prev.attempts + 1,
     correct: prev.correct + (ok ? 1 : 0),
     totalMs: prev.totalMs + (ok ? a.ms : 0),
     recent: [...prev.recent, ok ? 1 : 0].slice(-RECENT_MAX),
     lastSeen: at,
+    box: nextBox,
+    due: ok && !wasDue ? prev.due : at + BOX_INTERVALS_MS[nextBox],
   };
 
   const confusions = { ...p.confusions };
@@ -105,9 +134,17 @@ export function applyAttempt(p: Progress, a: AttemptInput): Progress {
 
   const dk = localDay(at);
   const day = p.days[dk] ?? { questions: 0, correct: 0, ms: 0 };
+  const capped = Math.min(a.ms, 60_000);
+  const dd = day.byDrill?.[a.drill] ?? { q: 0, c: 0, ms: 0 };
   const days = {
     ...p.days,
-    [dk]: { questions: day.questions + 1, correct: day.correct + (ok ? 1 : 0), ms: day.ms + Math.min(a.ms, 60_000) },
+    [dk]: {
+      ...day,
+      questions: day.questions + 1,
+      correct: day.correct + (ok ? 1 : 0),
+      ms: day.ms + capped,
+      byDrill: { ...day.byDrill, [a.drill]: { q: dd.q + 1, c: dd.c + (ok ? 1 : 0), ms: dd.ms + (ok ? capped : 0) } },
+    },
   };
 
   return { ...p, items: { ...p.items, [key]: item }, confusions, days };
@@ -119,6 +156,12 @@ export function recordAttempt(a: AttemptInput): void {
 
 export function recordSession(s: SessionRecord): void {
   commit({ ...current, sessions: [...current.sessions, s].slice(-SESSIONS_MAX) });
+}
+
+export function markDailyDone(at = Date.now()): void {
+  const dk = localDay(at);
+  const day = current.days[dk] ?? { questions: 0, correct: 0, ms: 0 };
+  commit({ ...current, days: { ...current.days, [dk]: { ...day, dailyDone: true } } });
 }
 
 export function resetProgress(): void {

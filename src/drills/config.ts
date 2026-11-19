@@ -33,8 +33,7 @@ export const DRILL_INFO: Record<DrillId, { title: string; blurb: string }> = {
   pitch: { title: "Note naming", blurb: "Name single notes, with or without a reference" },
 };
 
-function loadConfigs(): DrillConfigs {
-  const saved = loadJSON<Partial<DrillConfigs>>(KEY, {});
+function withDefaults(saved: Partial<DrillConfigs>): DrillConfigs {
   return {
     intervals: { ...DEFAULT_CONFIGS.intervals, ...saved.intervals },
     chords: { ...DEFAULT_CONFIGS.chords, ...saved.chords },
@@ -43,7 +42,14 @@ function loadConfigs(): DrillConfigs {
   };
 }
 
-let current = loadConfigs();
+let current = withDefaults(loadJSON<Partial<DrillConfigs>>(KEY, {}));
+
+/** Replace all drill options (backup restore / cloud sync). */
+export function replaceConfigs(next: Partial<DrillConfigs>): void {
+  current = withDefaults(next);
+  saveJSON(KEY, current);
+  listeners.forEach((l) => l());
+}
 const listeners = new Set<() => void>();
 
 export function getConfigs(): DrillConfigs {

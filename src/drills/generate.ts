@@ -33,15 +33,18 @@ export interface GenContext {
   weight: (part: string, itemId: string) => number;
   /** Answer of the previous question, to avoid immediate repeats. */
   previous?: string;
+  /** Ask exactly this item (daily session). Ignored if it isn't enabled. */
+  force?: string;
 }
 
-type RootOpts = Pick<Settings, "randomKey" | "fixedRoot" | "randomRegister" | "tempo">;
+type RootOpts = Pick<Settings, "randomKey" | "fixedRoot" | "randomRegister" | "tempo"> & Partial<Pick<Settings, "context">>;
 
 let uidCounter = 0;
 const uid = () => `q${Date.now().toString(36)}${(uidCounter++).toString(36)}`;
 
 export function weightedPick(ids: string[], part: string, ctx: GenContext): string {
   if (ids.length === 0) throw new Error("Nothing selected to practise");
+  if (ctx.force !== undefined && ids.includes(ctx.force)) return ctx.force;
   const weights = ids.map((id) => {
     let w = Math.max(0.05, ctx.weight(part, id));
     if (ids.length > 1 && id === ctx.previous) w *= 0.25;
@@ -56,7 +59,22 @@ export function weightedPick(ids: string[], part: string, ctx: GenContext): stri
   return ids[ids.length - 1];
 }
 
-function beat(tempo: number) {
+/** C at or below a note. */
+export function cBelow(midi: number): number {
+  return midi - (((midi % 12) + 12) % 12);
+}
+
+export function octavesFrom(midi: number, octaves: number): [number, number] {
+  const c = cBelow(midi);
+  return [c, c + 12 * octaves];
+}
+
+function intervalRange(start: number, down: boolean, compound: boolean | undefined): [number, number] {
+  const c = cBelow(start);
+  return down ? [c - (compound ? 24 : 12), c + 12] : [c, c + (compound ? 36 : 24)];
+}
+
+export function beat(tempo: number) {
   return 60 / Math.max(30, Math.min(240, tempo));
 }
 
@@ -112,10 +130,12 @@ export function generateInterval(cfg: IntervalConfig, s: RootOpts, ctx: GenConte
     notes: [startNote, otherNote],
     root,
     reveal: `${def.name} ${dirName}: ${spelledName(startNote.spelled)} → ${spelledName(otherNote.spelled)}`,
+    meta: { direction: dir },
     piano: {
       mode: "interval",
       given: [startNote.midi],
       direction: dir === "desc" ? "down" : "up",
+      range: intervalRange(startNote.midi, dir === "desc", cfg.enabled.some((e) => INTERVALS.find((i) => i.id === e)?.compound)),
       instruction: `Play the note ${dir === "desc" ? "below" : "above"} the highlighted ${spelledName(startNote.spelled)}`,
     },
   };
@@ -185,6 +205,7 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
       mode: "set",
       given: [r.midi],
       instruction: `Play every note of the chord on the root ${spelledName(r.spelled)}, then press Check`,
+      range: octavesFrom(r.midi, 2),
     },
   };
 }
@@ -228,6 +249,7 @@ export function generateScale(cfg: ScaleConfig, s: RootOpts, ctx: GenContext): Q
       mode: "set",
       given: [r.midi],
       instruction: `Play the notes of the scale starting on ${spelledName(r.spelled)}, then press Check`,
+      range: octavesFrom(r.midi, 2),
     },
   };
 }
@@ -250,7 +272,7 @@ export function generatePitch(cfg: PitchConfig, s: RootOpts, ctx: GenContext): Q
   const midi = 60 + pc + 12 * baseOct;
   const spelled = defaultSpelling(midi, pc !== 6);
 
-  const reference: PlayEvent[] | undefined = cfg.reference ? [{ midi: [refMidi], at: 0, dur: 1.1 }] : undefined;
+  const lead: PlayEvent[] | undefined = cfg.reference ? [{ midi: [refMidi], at: 0, dur: 1.1 }] : undefined;
 
   return {
     drill: "pitch",
@@ -264,24 +286,63 @@ export function generatePitch(cfg: PitchConfig, s: RootOpts, ctx: GenContext): Q
       },
     ],
     events: [{ midi: [midi], at: 0, dur: 1.6 }],
-    reference,
+    lead,
     notes: [{ midi, spelled, degree: "1" }],
     root: { midi: refMidi, spelled: refSpelled },
     reveal: `${PITCH_LABELS[pc]}`,
-    piano: { mode: "single", given: cfg.reference ? [refMidi] : [], instruction: "Play the note you heard (any octave)" },
+    piano: { mode: "single", given: cfg.reference ? [refMidi] : [], instruction: "Play the note you heard (any octave)", range: [48, 84] },
   };
 }
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Key context: a cadence before the question, or a drone underneath it.
+
+/** I–IV–V–I in the key of `tonic`, voice-led, with bass. Returns events and total length. */
+export function cadenceEvents(tonic: number, tempo: number, minor = false): { events: PlayEvent[]; length: number } {
+  const t = 60 + (((tonic % 12) + 12) % 12) - (((tonic % 12) + 12) % 12 > 7 ? 12 : 0);
+  const third = minor ? 3 : 4;
+  const sixth = minor ? 8 : 9;
+  const chords = [
+    { bass: 0, upper: [0, third, 7] },
+    { bass: 5, upper: [0, 5, sixth] },
+    { bass: -5, upper: [-1, 2, 7] },
+    { bass: 0, upper: [0, third, 7] },
+  ];
+  const step = Math.max(0.45, beat(tempo) * 0.9);
+  const events = chords.map((c, i) => ({
+    midi: [t - 12 + c.bass, ...c.upper.map((u) => t + u)],
+    at: i * step,
+    dur: i === 3 ? step * 1.6 : step * 0.95,
+    velocity: 62,
+  }));
+  return { events, length: step * 4 + step * 0.6 };
+}
+
+export function droneEvents(tonic: number, length: number): PlayEvent[] {
+  const t = 36 + (((tonic % 12) + 12) % 12);
+  return [{ midi: [t, t + 7], at: 0, dur: length + 0.5, velocity: 45 }];
+}
+
+function questionLength(q: Question): number {
+  return Math.max(...q.events.map((e) => e.at + e.dur));
+}
+
+export function withContext(q: Question, mode: Settings["context"] | undefined, tempo: number): Question {
+  if (!mode || mode === "off") return q;
+  if (mode === "cadence") return { ...q, lead: cadenceEvents(q.root.midi, tempo).events };
+  return { ...q, under: droneEvents(q.root.midi, questionLength(q)), lead: droneEvents(q.root.midi, 1.2) };
+}
+
 export function generate(drill: DrillId, cfgs: DrillConfigs, s: RootOpts, ctx: GenContext): Question {
   switch (drill) {
     case "intervals":
-      return generateInterval(cfgs.intervals, s, ctx);
+      return withContext(generateInterval(cfgs.intervals, s, ctx), s.context, s.tempo);
     case "chords":
       return generateChord(cfgs.chords, s, ctx);
     case "scales":
-      return generateScale(cfgs.scales, s, ctx);
+      return withContext(generateScale(cfgs.scales, s, ctx), s.context, s.tempo);
     case "pitch":
       return generatePitch(cfgs.pitch, s, ctx);
   }
@@ -294,7 +355,7 @@ export function generate(drill: DrillId, cfgs: DrillConfigs, s: RootOpts, ctx: G
  * so they can compare what they chose with what was played.
  * Returns null when there's nothing sensible to play.
  */
-export function answerPreview(q: Question, partKey: string, answerId: string, tempo: number): PlayEvent[] | null {
+export function answerPreview(q: Question, partKey: string, answerId: string, tempo: number, _partIndex = 0): PlayEvent[] | null {
   const b = beat(tempo);
   const root = q.root.midi;
   if (q.drill === "intervals") {
