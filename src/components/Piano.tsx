@@ -15,13 +15,15 @@ interface Props {
   keyboard?: boolean;
   /** Scroll this key into view on narrow screens. */
   focusMidi?: number;
+  /** Correct spellings for marked keys (e.g. C♯3 instead of D♭3). */
+  names?: Record<number, string>;
 }
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 // Computer keys for one and a bit octaves starting on C.
 const KEY_MAP = ["a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k", "o", "l", "p", ";"];
 
-export function Piano({ lo, hi, marks = {}, onKey, disabled, keyboard, focusMidi }: Props) {
+export function Piano({ lo, hi, marks = {}, onKey, disabled, keyboard, focusMidi, names = {} }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = scrollRef.current;
@@ -73,7 +75,7 @@ export function Piano({ lo, hi, marks = {}, onKey, disabled, keyboard, focusMidi
 
   const label = (m: number) => {
     const mark = marks[m];
-    if (mark && mark !== "selected") return midiName(m);
+    if (mark && mark !== "selected") return names[m] ?? midiName(m);
     if (m % 12 === 0) return midiName(m);
     return "";
   };
@@ -111,7 +113,7 @@ export function Piano({ lo, hi, marks = {}, onKey, disabled, keyboard, focusMidi
             aria-label={midiName(midi)}
             tabIndex={-1}
           >
-            <span className="key-label">{marks[midi] && marks[midi] !== "selected" ? midiName(midi) : ""}</span>
+            <span className="key-label">{marks[midi] && marks[midi] !== "selected" ? names[midi] ?? midiName(midi) : ""}</span>
           </button>
         ))}
       </div>

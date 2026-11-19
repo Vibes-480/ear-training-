@@ -678,7 +678,8 @@ input[type="range"] {
 .piano {
   position: relative;
   display: flex;
-  height: 170px;
+  /* Taller on tablets and big screens, for easy tapping. */
+  height: clamp(170px, 26vh, 300px);
   user-select: none;
   touch-action: manipulation;
 }
@@ -1446,4 +1447,45 @@ code {
 }
 .field-inline .chips select {
   min-height: 38px;
+}
+
+/* ---------- Tablets ---------- */
+
+/* Large tablets and desktops: use more of the width. */
+@media (min-width: 1000px) {
+  .nav,
+  .page {
+    max-width: 1080px;
+  }
+  .answers {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* Touch screens with room to spare: bigger targets and text. */
+@media (min-width: 700px) and (pointer: coarse) {
+  html,
+  body {
+    font-size: 17px;
+  }
+  .answer {
+    min-height: 76px;
+    padding: 12px 16px;
+  }
+  .answer-label {
+    font-size: 1.05rem;
+  }
+  .btn {
+    min-height: 50px;
+  }
+  .chip {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+  .btn.play {
+    min-height: 58px;
+  }
+  .key-label {
+    font-size: 0.8rem;
+  }
 }

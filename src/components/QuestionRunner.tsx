@@ -14,7 +14,7 @@ import { pick } from "../drills/register";
 import type { PlayEvent, Question } from "../drills/types";
 import { recordAttempt } from "../store/progress";
 import { getSettings, useSettings, type InstrumentId } from "../store/settings";
-import { degreeLabel, midiName, spelledName } from "../theory/notes";
+import { degreeLabel, midiName, spelledName, spelledNameWithOctave } from "../theory/notes";
 import { Piano, type KeyMark } from "./Piano";
 
 export interface SessionResult {
@@ -248,6 +248,10 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
     }
   }
 
+  // Label marked keys with the question's own spelling (C♯, not D♭, in a C♯ chord).
+  const keyNames: Record<number, string> = { [q.root.midi]: spelledNameWithOctave(q.root.spelled, q.root.midi) };
+  q.notes.forEach((n) => (keyNames[n.midi] = spelledNameWithOctave(n.spelled, n.midi)));
+
   const lastPartIdx = phase === "feedback" ? q.parts.length - 1 : partIdx;
 
   return (
@@ -348,7 +352,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
           {settings.showStaff && q.notes.length > 0 && (
             <QuestionStaff
               notes={q.notes}
-              harmonic={q.events.length === 1 && q.events[0].midi.length > 1}
+              harmonic={q.drill === "chords" || (q.events.length === 1 && q.events[0].midi.length > 1)}
               keySig={q.drill === "functional" ? vexKeySig(q.root.spelled, q.meta?.tonality === "minor") : "C"}
             />
           )}
@@ -358,7 +362,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
 
       {(usingPiano || (phase === "feedback" && inputMode !== "buttons" && q.piano)) && q.piano && (
         <div className="piano-wrap">
-          <Piano lo={q.piano.range[0]} hi={q.piano.range[1]} marks={marks} onKey={onKey} keyboard={usingPiano} focusMidi={q.piano.given[0]} />
+          <Piano lo={q.piano.range[0]} hi={q.piano.range[1]} marks={marks} names={keyNames} onKey={onKey} keyboard={usingPiano} focusMidi={q.piano.given[0]} />
           {usingPiano && (
             <div className="piano-actions">
               <span className="hint">Keys A–; play notes · Z / X change octave</span>
