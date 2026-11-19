@@ -3,6 +3,7 @@
 
 import { CHORDS, INTERVALS, SCALES } from "../theory/catalog";
 import { degreeSemitones } from "../theory/notes";
+import { FUNCTIONAL_DEGREES } from "../theory/harmony";
 import type { Question } from "./types";
 
 /** Id used when the played notes don't match anything in the catalog. */
@@ -23,6 +24,12 @@ export function evaluatePiano(q: Question, played: number[]): string {
   if (task.mode === "single") {
     const pc = ((played[played.length - 1] % 12) + 12) % 12;
     return String(pc);
+  }
+
+  if (task.mode === "degree") {
+    const diff = (((played[played.length - 1] - task.given[0]) % 12) + 12) % 12;
+    const match = FUNCTIONAL_DEGREES.find((d) => ((degreeSemitones(d.id) % 12) + 12) % 12 === diff);
+    return match ? match.id : OTHER;
   }
 
   if (task.mode === "interval") {

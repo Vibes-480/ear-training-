@@ -294,7 +294,7 @@ export function QuestionRunner({ title, total, makeQuestion, onExit, exitLabel =
                     </>
                   ) : (
                     <>
-                      {q.parts.length > 1 && <span className="muted">{p.prompt.replace(/\?$/, "")}: </span>}
+                      {q.parts.length > 1 && <span className="muted">{p.short ?? p.prompt.replace(/\?$/, "")}: </span>}
                       You said <strong>{choiceLabel(q, i, picks[i])}</strong>, it was <strong>{choiceLabel(q, i, p.answer)}</strong>
                     </>
                   )}

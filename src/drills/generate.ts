@@ -13,6 +13,7 @@ import {
 } from "../theory/notes";
 import type { Settings } from "../store/settings";
 import { chooseRoot, pick, type Rng } from "./register";
+import { generateChordTones, generateFunctional, generateProgression, harmonyPreview } from "./harmony";
 import type {
   ChordConfig,
   Choice,
@@ -188,6 +189,7 @@ export function generateChord(cfg: ChordConfig, s: RootOpts, ctx: GenContext): Q
     parts.push({
       key: "inversion",
       prompt: "Which inversion?",
+      short: "Inversion",
       choices: allowedInv.map((i) => ({ id: String(i), label: INVERSION_NAMES[i], sub: i === 0 ? "root in bass" : `${def.degrees[i]} in bass` })),
       answer: String(inv),
     });
@@ -343,6 +345,12 @@ export function generate(drill: DrillId, cfgs: DrillConfigs, s: RootOpts, ctx: G
       return generateChord(cfgs.chords, s, ctx);
     case "scales":
       return withContext(generateScale(cfgs.scales, s, ctx), s.context, s.tempo);
+    case "progressions":
+      return generateProgression(cfgs.progressions, s, ctx);
+    case "functional":
+      return generateFunctional(cfgs.functional, s, ctx);
+    case "chordtones":
+      return generateChordTones(cfgs.chordtones, s, ctx);
     case "pitch":
       return generatePitch(cfgs.pitch, s, ctx);
   }
@@ -355,7 +363,8 @@ export function generate(drill: DrillId, cfgs: DrillConfigs, s: RootOpts, ctx: G
  * so they can compare what they chose with what was played.
  * Returns null when there's nothing sensible to play.
  */
-export function answerPreview(q: Question, partKey: string, answerId: string, tempo: number, _partIndex = 0): PlayEvent[] | null {
+export function answerPreview(q: Question, partKey: string, answerId: string, tempo: number, partIndex = 0): PlayEvent[] | null {
+  if (q.drill === "progressions" || q.drill === "functional" || q.drill === "chordtones") return harmonyPreview(q, partKey, answerId, partIndex, tempo);
   const b = beat(tempo);
   const root = q.root.midi;
   if (q.drill === "intervals") {

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CHORDS, INTERVALS, INVERSION_NAMES, SCALES, type ChordGroup, type ScaleGroup } from "../theory/catalog";
-import { COMMON_ROOTS, spelledName } from "../theory/notes";
+import { COMMON_ROOTS, degreeLabel, spelledName } from "../theory/notes";
+import { BACKING_SETS, CADENCES, CHORD_TONES, FUNCTIONAL_DEGREES, NUMERALS, TONIC } from "../theory/harmony";
 import { resetConfig, updateConfig, useConfigs } from "../drills/config";
 import { PITCH_LABELS } from "../drills/generate";
 import type { DrillId } from "../drills/types";
@@ -52,7 +53,7 @@ export function Switch({ checked, onChange, label, hint }: { checked: boolean; o
 }
 
 /** Key and register switches, shared by every drill. */
-function KeyOptions() {
+function KeyOptions({ register = true }: { register?: boolean }) {
   const s = useSettings();
   return (
     <div className="opt-group">
@@ -69,7 +70,7 @@ function KeyOptions() {
           </select>
         </label>
       )}
-      <Switch checked={s.randomRegister} onChange={(v) => updateSettings({ randomRegister: v })} label="Random register" hint="Move questions to different octaves" />
+      {register && <Switch checked={s.randomRegister} onChange={(v) => updateSettings({ randomRegister: v })} label="Random register" hint="Move questions to different octaves" />}
     </div>
   );
 }
@@ -227,6 +228,173 @@ function PitchOptions() {
   );
 }
 
+function TonalityGroup({ value, onChange }: { value: ("major" | "minor")[]; onChange: (v: ("major" | "minor")[]) => void }) {
+  return (
+    <Group title="Keys">
+      <Chip on={value.includes("major")} onClick={() => onChange(toggle(value, "major"))}>
+        Major
+      </Chip>
+      <Chip on={value.includes("minor")} onClick={() => onChange(toggle(value, "minor"))}>
+        Minor
+      </Chip>
+    </Group>
+  );
+}
+
+function NumeralGroup({ tonality, value, onChange }: { tonality: "major" | "minor"; value: string[]; onChange: (v: string[]) => void }) {
+  const all = NUMERALS[tonality].filter((n) => n.id !== TONIC[tonality]);
+  const diatonic = all.filter((n) => !n.chromatic);
+  const chromatic = all.filter((n) => n.chromatic);
+  return (
+    <>
+      <Group title={`Chords in ${tonality} keys`} onAll={() => onChange([...new Set([...value, ...diatonic.map((n) => n.id)])])} onNone={() => onChange(value.filter((v) => !diatonic.some((n) => n.id === v)))}>
+        {diatonic.map((n) => (
+          <Chip key={n.id} on={value.includes(n.id)} onClick={() => onChange(toggle(value, n.id))}>
+            {n.id}
+          </Chip>
+        ))}
+      </Group>
+      <Group title={`Borrowed & secondary (${tonality})`} onAll={() => onChange([...new Set([...value, ...chromatic.map((n) => n.id)])])} onNone={() => onChange(value.filter((v) => !chromatic.some((n) => n.id === v)))}>
+        {chromatic.map((n) => (
+          <Chip key={n.id} on={value.includes(n.id)} onClick={() => onChange(toggle(value, n.id))} title={n.hint}>
+            {n.id}
+            {n.hint && <span className="chip-hint"> {n.hint}</span>}
+          </Chip>
+        ))}
+      </Group>
+    </>
+  );
+}
+
+function ProgressionOptions() {
+  const { progressions: c } = useConfigs();
+  const set = (patch: Partial<typeof c>) => updateConfig("progressions", patch);
+  return (
+    <>
+      <Group title="Exercise">
+        <Chip on={c.mode === "numerals"} onClick={() => set({ mode: "numerals" })}>
+          Name every chord
+        </Chip>
+        <Chip on={c.mode === "cadences"} onClick={() => set({ mode: "cadences" })}>
+          Name the cadence
+        </Chip>
+      </Group>
+      <TonalityGroup value={c.tonalities} onChange={(tonalities) => set({ tonalities })} />
+      {c.mode === "numerals" ? (
+        <>
+          {c.tonalities.includes("major") && <NumeralGroup tonality="major" value={c.major} onChange={(major) => set({ major })} />}
+          {c.tonalities.includes("minor") && <NumeralGroup tonality="minor" value={c.minor} onChange={(minor) => set({ minor })} />}
+          <Group title="Progressions">
+            <Chip on={c.style === "common"} onClick={() => set({ style: "common" })}>
+              Common ones from real music
+            </Chip>
+            <Chip on={c.style === "random"} onClick={() => set({ style: "random" })}>
+              Random
+            </Chip>
+          </Group>
+          {c.style === "random" && (
+            <label className="field-inline">
+              Chords per progression
+              <select value={c.length} onChange={(e) => set({ length: Number(e.target.value) })}>
+                {[3, 4, 5, 6, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {c.style === "common" && <p className="hint">Uses well-known progressions made only of the chords you selected. Falls back to random if none fit.</p>}
+        </>
+      ) : (
+        <Group title="Cadences">
+          {CADENCES.map((cad) => (
+            <Chip key={cad.id} on={c.cadences.includes(cad.id)} onClick={() => set({ cadences: toggle(c.cadences, cad.id) })}>
+              {cad.name} <span className="chip-hint">{cad.sub}</span>
+            </Chip>
+          ))}
+        </Group>
+      )}
+      <div className="opt-group">
+        <Switch checked={c.sevenths} onChange={(v) => set({ sevenths: v })} label="Use 7th chords" hint="Jazz-style four-note chords instead of triads" />
+      </div>
+    </>
+  );
+}
+
+function FunctionalOptions() {
+  const { functional: c } = useConfigs();
+  const set = (patch: Partial<typeof c>) => updateConfig("functional", patch);
+  const degreeGroup = (tonality: "major" | "minor") => {
+    const value = tonality === "major" ? c.major : c.minor;
+    const onChange = (v: string[]) => set(tonality === "major" ? { major: v } : { minor: v });
+    return (
+      <Group key={tonality} title={`Degrees in ${tonality} keys`} onAll={() => onChange(FUNCTIONAL_DEGREES.map((d) => d.id))} onNone={() => onChange([])}>
+        {FUNCTIONAL_DEGREES.map((d) => (
+          <Chip key={d.id} on={value.includes(d.id)} onClick={() => onChange(toggle(value, d.id))} title={d.name}>
+            {degreeLabel(d.id)}
+          </Chip>
+        ))}
+      </Group>
+    );
+  };
+  return (
+    <>
+      <TonalityGroup value={c.tonalities} onChange={(tonalities) => set({ tonalities })} />
+      {c.tonalities.includes("major") && degreeGroup("major")}
+      {c.tonalities.includes("minor") && degreeGroup("minor")}
+      <Group title="Register">
+        {(
+          [
+            ["bass", "Bass line"],
+            ["mid", "Middle"],
+            ["high", "High"],
+          ] as const
+        ).map(([id, name]) => (
+          <Chip key={id} on={c.registers.includes(id)} onClick={() => set({ registers: toggle(c.registers, id) })}>
+            {name}
+          </Chip>
+        ))}
+      </Group>
+      <label className="field-inline">
+        Notes per question
+        <select value={c.notes} onChange={(e) => set({ notes: Number(e.target.value) })}>
+          {[1, 2, 3, 4].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="hint">A cadence sets the key first, then you name each note's scale degree.</p>
+    </>
+  );
+}
+
+function ChordToneOptions() {
+  const { chordtones: c } = useConfigs();
+  const set = (patch: Partial<typeof c>) => updateConfig("chordtones", patch);
+  return (
+    <>
+      <Group title="Backing tracks" onAll={() => set({ sets: BACKING_SETS.map((b) => b.id) })} onNone={() => set({ sets: [] })}>
+        {BACKING_SETS.map((b) => (
+          <Chip key={b.id} on={c.sets.includes(b.id)} onClick={() => set({ sets: toggle(c.sets, b.id) })}>
+            {b.name}
+          </Chip>
+        ))}
+      </Group>
+      <Group title="Chord tones">
+        {CHORD_TONES.map((t) => (
+          <Chip key={t.id} on={c.tones.includes(t.id)} onClick={() => set({ tones: toggle(c.tones, t.id) })}>
+            {t.name}
+          </Chip>
+        ))}
+      </Group>
+      <p className="hint">A 4-bar loop plays with a louder note on beat 2 of each bar. Name that note's role in the chord shown.</p>
+    </>
+  );
+}
+
 export function DrillOptions({ drill }: { drill: DrillId }) {
   return (
     <div className="drill-options">
@@ -234,7 +402,10 @@ export function DrillOptions({ drill }: { drill: DrillId }) {
       {drill === "chords" && <ChordOptions />}
       {drill === "scales" && <ScaleOptions />}
       {drill === "pitch" && <PitchOptions />}
-      <KeyOptions />
+      {drill === "progressions" && <ProgressionOptions />}
+      {drill === "functional" && <FunctionalOptions />}
+      {drill === "chordtones" && <ChordToneOptions />}
+      <KeyOptions register={["intervals", "chords", "scales", "pitch"].includes(drill)} />
       <button type="button" className="link" onClick={() => resetConfig(drill)}>
         Reset this drill to defaults
       </button>
@@ -260,6 +431,26 @@ export function configProblem(drill: DrillId, cfgs: ReturnType<typeof useConfigs
       return null;
     case "pitch":
       if (cfgs.pitch.enabled.length < 2) return "Pick at least two notes.";
+      return null;
+    case "progressions": {
+      const c = cfgs.progressions;
+      if (!c.tonalities.length) return "Pick major, minor or both.";
+      if (c.mode === "cadences") return c.cadences.length < 2 ? "Pick at least two cadences." : null;
+      if (c.tonalities.includes("major") && c.major.length < 1) return "Pick at least one chord for major keys.";
+      if (c.tonalities.includes("minor") && c.minor.length < 1) return "Pick at least one chord for minor keys.";
+      return null;
+    }
+    case "functional": {
+      const c = cfgs.functional;
+      if (!c.tonalities.length) return "Pick major, minor or both.";
+      if (c.tonalities.includes("major") && c.major.length < 2) return "Pick at least two degrees for major keys.";
+      if (c.tonalities.includes("minor") && c.minor.length < 2) return "Pick at least two degrees for minor keys.";
+      if (!c.registers.length) return "Pick at least one register.";
+      return null;
+    }
+    case "chordtones":
+      if (!cfgs.chordtones.sets.length) return "Pick at least one backing track.";
+      if (cfgs.chordtones.tones.length < 2) return "Pick at least two chord tones.";
       return null;
   }
 }

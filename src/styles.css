@@ -1043,3 +1043,9 @@ table.stats .num {
 .conf-num.on-dark {
   fill: var(--accent-text);
 }
+
+.chip-hint {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.82em;
+}

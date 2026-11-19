@@ -1,6 +1,6 @@
 import type { SpelledNote } from "../theory/notes";
 
-export type DrillId = "intervals" | "chords" | "scales" | "pitch";
+export type DrillId = "intervals" | "chords" | "scales" | "pitch" | "progressions" | "functional" | "chordtones";
 
 export interface Choice {
   id: string;
@@ -13,6 +13,8 @@ export interface QuestionPart {
   /** Stable key used for stats, e.g. "quality" or "inversion". */
   key: string;
   prompt: string;
+  /** Short name for feedback when a question has several parts, e.g. "Bar 2 (G7)". */
+  short?: string;
   choices: Choice[];
   answer: string;
 }
@@ -42,9 +44,10 @@ export interface QuestionNote {
  * - "interval": the `given` note is shown; play the one other note.
  * - "set": the root is shown; play every note (any octave), then check.
  * - "single": play one note (any octave).
+ * - "degree": the tonic is shown; play the scale degree you heard (any octave).
  */
 export interface PianoTask {
-  mode: "interval" | "set" | "single";
+  mode: "interval" | "set" | "single" | "degree";
   given: number[];
   instruction: string;
   /** For "interval": whether the answer note is above or below the given note. */
@@ -69,7 +72,17 @@ export interface Question {
   /** Played underneath the question, starting with it (e.g. a drone). */
   under?: PlayEvent[];
   /** Extra facts the UI can use, e.g. interval direction for song references. */
-  meta?: { direction?: "asc" | "desc" | "harm" };
+  meta?: {
+    direction?: "asc" | "desc" | "harm";
+    /** Progressions: what was played, so a wrong answer can be heard in context. */
+    tonality?: "major" | "minor";
+    numerals?: string[];
+    sevenths?: boolean;
+    /** Functional drill: the degrees played. */
+    degrees?: string[];
+    /** Chord tones: chords (root midi + chord id) and the tone over each. */
+    backing?: { root: number; chord: string }[];
+  };
 }
 
 export interface IntervalConfig {
@@ -98,9 +111,40 @@ export interface PitchConfig {
   octaves: number;
 }
 
+export interface ProgressionConfig {
+  /** Name every chord by Roman numeral, or name the cadence at the end of a phrase. */
+  mode: "numerals" | "cadences";
+  tonalities: ("major" | "minor")[];
+  major: string[];
+  minor: string[];
+  /** Chords per progression (random style). */
+  length: number;
+  /** Common progressions from real music, or random chords from your selection. */
+  style: "common" | "random";
+  sevenths: boolean;
+  cadences: string[];
+}
+
+export interface FunctionalConfig {
+  tonalities: ("major" | "minor")[];
+  major: string[];
+  minor: string[];
+  /** Notes per question. */
+  notes: number;
+  registers: ("bass" | "mid" | "high")[];
+}
+
+export interface ChordToneConfig {
+  sets: string[];
+  tones: string[];
+}
+
 export interface DrillConfigs {
   intervals: IntervalConfig;
   chords: ChordConfig;
   scales: ScaleConfig;
   pitch: PitchConfig;
+  progressions: ProgressionConfig;
+  functional: FunctionalConfig;
+  chordtones: ChordToneConfig;
 }

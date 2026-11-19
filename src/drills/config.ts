@@ -24,6 +24,27 @@ export const DEFAULT_CONFIGS: DrillConfigs = {
     reference: true,
     octaves: 2,
   },
+  progressions: {
+    mode: "numerals",
+    tonalities: ["major"],
+    major: ["I", "ii", "iii", "IV", "V", "vi"],
+    minor: ["i", "iv", "V", "VI", "III", "VII"],
+    length: 4,
+    style: "common",
+    sevenths: false,
+    cadences: ["authentic", "plagal", "half", "deceptive"],
+  },
+  functional: {
+    tonalities: ["major"],
+    major: ["1", "2", "3", "4", "5", "6", "7"],
+    minor: ["1", "2", "b3", "4", "5", "b6", "b7", "7"],
+    notes: 1,
+    registers: ["mid"],
+  },
+  chordtones: {
+    sets: ["ii-V-I", "I-vi-ii-V"],
+    tones: ["1", "3", "5", "7"],
+  },
 };
 
 export const DRILL_INFO: Record<DrillId, { title: string; blurb: string }> = {
@@ -31,6 +52,9 @@ export const DRILL_INFO: Record<DrillId, { title: string; blurb: string }> = {
   chords: { title: "Chords", blurb: "Triads, 7ths and extensions, in every inversion" },
   scales: { title: "Scales & modes", blurb: "The church modes, minor scales, symmetric scales" },
   pitch: { title: "Note naming", blurb: "Name single notes, with or without a reference" },
+  progressions: { title: "Progressions", blurb: "Roman numerals and cadences in major and minor" },
+  functional: { title: "Scale degrees", blurb: "Hear each note's role in the key, melody or bass" },
+  chordtones: { title: "Chord tones", blurb: "Name the note over each chord of a backing track" },
 };
 
 function withDefaults(saved: Partial<DrillConfigs>): DrillConfigs {
@@ -39,6 +63,9 @@ function withDefaults(saved: Partial<DrillConfigs>): DrillConfigs {
     chords: { ...DEFAULT_CONFIGS.chords, ...saved.chords },
     scales: { ...DEFAULT_CONFIGS.scales, ...saved.scales },
     pitch: { ...DEFAULT_CONFIGS.pitch, ...saved.pitch },
+    progressions: { ...DEFAULT_CONFIGS.progressions, ...saved.progressions },
+    functional: { ...DEFAULT_CONFIGS.functional, ...saved.functional },
+    chordtones: { ...DEFAULT_CONFIGS.chordtones, ...saved.chordtones },
   };
 }
 

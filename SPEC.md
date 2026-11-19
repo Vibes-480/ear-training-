@@ -53,7 +53,7 @@ A personal ear trainer covering everything needed to develop strong relative pit
 
 1. **Core** ✅: app shell, sound engine, interval, chord, scale and note-naming drills, on-screen piano and keyboard input, local progress, basic stats, backup and restore.
 2. **Daily session and stats** ✅: spaced-repetition daily session, confusion grid, charts, presets, streak goals and calendar.
-3. **Harmony:** progressions, functional training, chord tones over a backing track, drone and cadence context, song references.
+3. **Harmony** ✅: progressions, functional training, chord tones over a backing track, drone and cadence context, song references.
 4. **Voice:** mic pitch detection, voice-range detection, sight-singing, tuning drills.
 5. **Dictation:** melody and rhythm on a staff.
 6. **Accounts:** Supabase login and cloud sync.

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { audio } from "../audio/engine";
 import { DRILL_INFO } from "../drills/config";
-import { CHOICE_DRILLS } from "../drills/registry";
+import { HARMONY_DRILLS, HEARING_DRILLS } from "../drills/registry";
 import type { DrillId } from "../drills/types";
 import { usePresets } from "../store/presets";
 import { currentStreak, localDay, useProgress, type Progress } from "../store/progress";
@@ -105,7 +105,10 @@ export function HomePage() {
       )}
 
       <h2 className="section-title">Hearing</h2>
-      <DrillGrid drills={CHOICE_DRILLS} p={p} />
+      <DrillGrid drills={HEARING_DRILLS} p={p} />
+
+      <h2 className="section-title">Harmony</h2>
+      <DrillGrid drills={HARMONY_DRILLS} p={p} />
     </div>
   );
 }
